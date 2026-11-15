@@ -3,6 +3,7 @@ import { Stack } from 'expo-router/stack';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { GameProvider } from '@/game/game-store';
+import { AuthProvider } from '@/lib/auth';
 import { colors } from '@/theme';
 
 export default function RootLayout() {
@@ -17,11 +18,13 @@ export default function RootLayout() {
   }
 
   return (
-    <GameProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_left', contentStyle: { backgroundColor: colors.sea } }}>
-        <Stack.Screen name="race" options={{ gestureEnabled: false, animation: 'fade' }} />
-      </Stack>
-    </GameProvider>
+    <AuthProvider>
+      <GameProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, animation: 'slide_from_left', contentStyle: { backgroundColor: colors.sea } }}>
+          <Stack.Screen name="race" options={{ gestureEnabled: false, animation: 'fade' }} />
+        </Stack>
+      </GameProvider>
+    </AuthProvider>
   );
 }

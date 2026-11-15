@@ -4,10 +4,12 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { Boat, Flag } from '@/components/race-art';
 import { Button, FadeIn, Row, Screen, T } from '@/components/ui';
 import { useGame } from '@/game/game-store';
+import { useAuth } from '@/lib/auth';
 import { colors, nativeDriver, radius } from '@/theme';
 
 export default function Home() {
   const { begin } = useGame();
+  const { session } = useAuth();
   const bob = useState(() => new Animated.Value(0))[0];
   useEffect(() => {
     const loop = Animated.loop(
@@ -57,25 +59,31 @@ export default function Home() {
           لعبة تجريبية قصيرة بدون حساب
         </T>
         <View style={styles.divider} />
-        <T size={15} center color={colors.ink}>
-          اللعبة الكاملة بدينار واحد — سجّل حسابك
-        </T>
-        <Row style={{ gap: 10 }}>
-          <Button
-            label="بالإيميل"
-            tone="white"
-            size="md"
-            style={{ flex: 1 }}
-            onPress={() => router.push({ pathname: '/auth', params: { method: 'email' } })}
-          />
-          <Button
-            label="برقم الهاتف"
-            tone="white"
-            size="md"
-            style={{ flex: 1 }}
-            onPress={() => router.push({ pathname: '/auth', params: { method: 'phone' } })}
-          />
-        </Row>
+        {session ? (
+          <Button label="حسابي" tone="white" size="md" onPress={() => router.push('/lobby')} />
+        ) : (
+          <>
+            <T size={15} center color={colors.ink}>
+              اللعبة الكاملة بدينار واحد — سجّل حسابك
+            </T>
+            <Row style={{ gap: 10 }}>
+              <Button
+                label="بالإيميل"
+                tone="white"
+                size="md"
+                style={{ flex: 1 }}
+                onPress={() => router.push({ pathname: '/auth', params: { method: 'email' } })}
+              />
+              <Button
+                label="برقم الهاتف"
+                tone="white"
+                size="md"
+                style={{ flex: 1 }}
+                onPress={() => router.push({ pathname: '/auth', params: { method: 'phone' } })}
+              />
+            </Row>
+          </>
+        )}
       </FadeIn>
     </Screen>
   );

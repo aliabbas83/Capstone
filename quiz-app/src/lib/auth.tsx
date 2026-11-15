@@ -1,0 +1,100 @@
+import type { AuthError, Session } from '@supabase/supabase-js';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState, Platform } from 'react-native';
+import type { Database } from './database.types';
+import { supabase, supabaseConfigured } from './supabase';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
+
+type AuthValue = {
+  ready: boolean; // first session check finished
+  session: Session | null;
+  profile: Profile | null;
+  profileError: string | null;
+  refreshProfile: () => Promise<void>;
+  signOut: () => Promise<void>;
+};
+
+const Ctx = createContext<AuthValue | null>(null);
+
+// Keep tokens fresh only while the app is in the foreground (Supabase RN guidance).
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', (s) => {
+    if (s === 'active') supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  });
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(!supabaseConfigured);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!supabaseConfigured) return;
+    let alive = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!alive) return;
+      setSession(data.session);
+      setReady(true);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (!s) setProfile(null);
+    });
+    return () => {
+      alive = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  const userId = session?.user.id ?? null;
+
+  const refreshProfile = useCallback(async () => {
+    if (!userId) return;
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (error) setProfileError('تعذّر تحميل حسابك. تأكد من الاتصال وحاول مرة ثانية.');
+    else {
+      setProfileError(null);
+      setProfile(data);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    // Loading the profile is an external sync, so it belongs in an effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (userId) refreshProfile();
+  }, [userId, refreshProfile]);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setProfile(null);
+  }, []);
+
+  const value = useMemo(
+    () => ({ ready, session, profile, profileError, refreshProfile, signOut }),
+    [ready, session, profile, profileError, refreshProfile, signOut],
+  );
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useAuth(): AuthValue {
+  const v = useContext(Ctx);
+  if (!v) throw new Error('useAuth must be inside <AuthProvider>');
+  return v;
+}
+
+/** Friendly Arabic message for Supabase auth errors. */
+export function authErrorMessage(e: AuthError | Error | null | undefined): string {
+  if (!e) return '';
+  const code = 'code' in e ? (e as AuthError).code : undefined;
+  const status = 'status' in e ? (e as AuthError).status : undefined;
+  if (code === 'otp_expired' || /expired|invalid/i.test(e.message)) return 'الرمز غير صحيح أو انتهت صلاحيته. اطلب رمزاً جديداً.';
+  if (code === 'over_email_send_rate_limit' || code === 'over_sms_send_rate_limit' || status === 429)
+    return 'طلبات كثيرة. انتظر قليلاً ثم حاول مرة ثانية.';
+  if (code === 'sms_send_failed' || code === 'phone_provider_disabled' || /sms|phone provider/i.test(e.message))
+    return 'التسجيل برقم الهاتف غير متاح حالياً. جرّب الإيميل.';
+  if (/network|fetch/i.test(e.message)) return 'لا يوجد اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.';
+  return 'صار خطأ غير متوقع. حاول مرة ثانية.';
+}
