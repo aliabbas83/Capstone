@@ -37,3 +37,29 @@ export function maskPhone(e164: string): string {
   const local = e164.replace('+965', '');
   return `+965 ${local.slice(0, 2)}•• ••${local.slice(-2)}`;
 }
+
+// ── Passwords (server rule: at least 8, letters + digits) ──
+export const PASSWORD_MIN = 8;
+
+/** Arabic error text, or null when the password is acceptable. */
+export function passwordProblem(p: string): string | null {
+  if (p.length < PASSWORD_MIN) return `كلمة المرور لازم تكون ${PASSWORD_MIN} أحرف أو أكثر.`;
+  if (p.length > 72) return 'كلمة المرور طويلة جداً (الحد 72 حرفاً).';
+  if (!/[A-Za-z]/.test(p) || !/\d/.test(p)) return 'كلمة المرور لازم تحتوي على حروف إنجليزية وأرقام.';
+  return null;
+}
+
+// ── Phone sign-in without SMS ──
+// Supabase phone sign-up needs an SMS provider, so a phone number is stored as an
+// internal login name on a reserved domain (.invalid never receives mail).
+const PHONE_DOMAIN = '@phone.jawla.invalid';
+
+export function phoneLoginEmail(e164: string): string {
+  return `${e164.replace(/^\+/, '')}${PHONE_DOMAIN}`;
+}
+
+/** +965… if this login email belongs to a phone account, else null. */
+export function phoneFromLoginEmail(email: string | null | undefined): string | null {
+  if (!email || !email.endsWith(PHONE_DOMAIN)) return null;
+  return `+${email.slice(0, -PHONE_DOMAIN.length)}`;
+}

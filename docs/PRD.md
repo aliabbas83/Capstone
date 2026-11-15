@@ -10,7 +10,7 @@ Friends and families want a fun Arabic quiz game they can play together on one p
 
 ## What each user can do
 - Guest: play a short demo race with sample questions. No sign-up.
-- Host: sign up / log in with **email** or **phone** (one-time code); buy a real game for **1 KWD**; set up teams; run the game; play again / change teams / end the game.
+- Host: sign up / log in with **email** or **Kuwaiti phone number** and a **password** (no verification step); buy a real game for **1 KWD**; set up teams; run the game; play again / change teams / end the game.
 - Players: answer questions out loud; when right, choose to **move their boat forward** or **push the other boat back**.
 
 ## Game rules
@@ -32,7 +32,7 @@ Friends and families want a fun Arabic quiz game they can play together on one p
 
 ## Screens
 1. Splash / Home — logo, start demo, sign up (email / phone), log in.
-2. Sign up / log in — email or phone, then a 6-digit code.
+2. Sign up / log in — email or phone number + password (new account / log in tabs).
 3. Lobby (logged in) — new game (pay 1 KWD), games left, settings, log out.
 4. Payment — MyFatoorah page, then success / failure.
 5. Teams — name + image for each team (gallery or photo).
@@ -59,7 +59,7 @@ Online multiplayer on several phones, more than 2 teams, Apple/Google in-app pur
 - OWASP audit shows no critical or high findings; RLS on every table.
 
 ## Open questions
-- Twilio (SMS) account for phone sign-in: the host must create it and add the keys in Supabase.
+- Phone accounts have no SMS step, so there is no password reset by phone. Adding SMS (Twilio) later is optional.
 - Who writes the full question bank and how many questions at launch.
 - Background music source (royalty-free).
 - Publishing to the App Store / Google Play would require in-app purchase instead of MyFatoorah.

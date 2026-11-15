@@ -7,7 +7,7 @@ import { useGame } from '@/game/game-store';
 import { toArabicDigits } from '@/lib/arabic';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import { maskPhone } from '@/lib/validate';
+import { maskPhone, phoneFromLoginEmail } from '@/lib/validate';
 import { colors, radius } from '@/theme';
 
 type GameRow = { id: string; team_names: string[]; winner: number | null; status: string; created_at: string };
@@ -43,7 +43,8 @@ export default function Lobby() {
   if (!session) return <Redirect href="/auth" />;
 
   const user = session.user;
-  const who = user.email ?? (user.phone ? maskPhone(`+${user.phone.replace(/^\+/, '')}`) : '');
+  const phone = phoneFromLoginEmail(user.email);
+  const who = phone ? maskPhone(phone) : (user.email ?? '');
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -1,36 +1,27 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { BackIcon } from '@/components/icons';
 import { Button, Card, FadeIn, haptic, IconButton, Row, Screen, T } from '@/components/ui';
-import { toArabicDigits } from '@/lib/arabic';
 import { authErrorMessage, useAuth } from '@/lib/auth';
 import { supabase, supabaseConfigured } from '@/lib/supabase';
-import { cleanCode, maskPhone, normalizeEmail, normalizeKuwaitPhone } from '@/lib/validate';
+import { normalizeEmail, normalizeKuwaitPhone, passwordProblem, phoneLoginEmail } from '@/lib/validate';
 import { colors, fonts, radius, ROW } from '@/theme';
 
 type Method = 'email' | 'phone';
-type Step = 'enter' | 'code';
-const RESEND_SECONDS = 60;
+type Mode = 'signin' | 'signup';
 
 export default function Auth() {
   const params = useLocalSearchParams<{ method?: string }>();
   const { ready, session } = useAuth();
+  const [mode, setMode] = useState<Mode>('signup');
   const [method, setMethod] = useState<Method>(params.method === 'phone' ? 'phone' : 'email');
-  const [step, setStep] = useState<Step>('enter');
-  const [raw, setRaw] = useState('');
-  const [target, setTarget] = useState(''); // normalised email / +965 number the code was sent to
-  const [code, setCode] = useState('');
+  const [id, setId] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [wait, setWait] = useState(0);
-
-  // Resend countdown.
-  useEffect(() => {
-    if (wait <= 0) return;
-    const t = setTimeout(() => setWait((w) => w - 1), 1000);
-    return () => clearTimeout(t);
-  }, [wait]);
 
   if (!ready) {
     return (
@@ -41,77 +32,71 @@ export default function Auth() {
   }
   if (session) return <Redirect href="/lobby" />;
 
+  const clearError = () => setError('');
+
+  const switchMode = (m: Mode) => {
+    if (m === mode) return;
+    haptic();
+    setMode(m);
+    setConfirm('');
+    setError('');
+  };
+
   const switchMethod = (m: Method) => {
     if (m === method) return;
     haptic();
     setMethod(m);
-    setRaw('');
+    setId('');
     setError('');
-    setStep('enter');
   };
 
-  const sendCode = async () => {
+  const submit = async () => {
     setError('');
-    const value = method === 'email' ? normalizeEmail(raw) : normalizeKuwaitPhone(raw);
-    if (!value) {
-      setError(method === 'email' ? 'اكتب إيميل صحيح، مثل: name@example.com' : 'اكتب رقم جوال كويتي من 8 أرقام، مثل: 99123456');
-      return;
+    // 1) Who: an email, or a Kuwaiti mobile turned into its internal login name.
+    let loginEmail: string | null;
+    if (method === 'email') {
+      loginEmail = normalizeEmail(id);
+      if (!loginEmail) return setError('اكتب إيميل صحيح، مثل: name@example.com');
+    } else {
+      const phone = normalizeKuwaitPhone(id);
+      if (!phone) return setError('اكتب رقم جوال كويتي من 8 أرقام، مثل: 99123456');
+      loginEmail = phoneLoginEmail(phone);
     }
-    setBusy(true);
-    const { error: e } =
-      method === 'email'
-        ? await supabase.auth.signInWithOtp({ email: value, options: { shouldCreateUser: true } })
-        : await supabase.auth.signInWithOtp({ phone: value, options: { shouldCreateUser: true } });
-    setBusy(false);
-    if (e) {
-      setError(authErrorMessage(e));
-      return;
+    // 2) Password checks (the server checks again).
+    if (mode === 'signup') {
+      const problem = passwordProblem(password);
+      if (problem) return setError(problem);
+      if (password !== confirm) return setError('كلمتا المرور غير متطابقتين.');
+    } else if (!password) {
+      return setError('اكتب كلمة المرور.');
     }
-    haptic('success');
-    setTarget(value);
-    setCode('');
-    setStep('code');
-    setWait(RESEND_SECONDS);
-  };
 
-  const verify = async () => {
-    setError('');
-    if (code.length < 6) {
-      setError('اكتب الرمز كاملاً (6 أرقام).');
-      return;
-    }
     setBusy(true);
-    const { error: e } =
-      method === 'email'
-        ? await supabase.auth.verifyOtp({ email: target, token: code, type: 'email' })
-        : await supabase.auth.verifyOtp({ phone: target, token: code, type: 'sms' });
+    const { data, error: e } =
+      mode === 'signup'
+        ? await supabase.auth.signUp({ email: loginEmail, password })
+        : await supabase.auth.signInWithPassword({ email: loginEmail, password });
     setBusy(false);
+
     if (e) {
       haptic('warning');
-      setError(authErrorMessage(e));
-      return;
+      return setError(authErrorMessage(e));
+    }
+    if (!data.session) {
+      // Sign-up returned no session: the account already exists (Supabase hides this on purpose).
+      return setError('هذا الحساب موجود. اختر "تسجيل الدخول" واكتب كلمة المرور.');
     }
     haptic('success');
     router.replace('/lobby');
   };
 
-  const resend = async () => {
-    setError('');
-    setBusy(true);
-    const { error: e } =
-      method === 'email'
-        ? await supabase.auth.signInWithOtp({ email: target })
-        : await supabase.auth.signInWithOtp({ phone: target });
-    setBusy(false);
-    if (e) setError(authErrorMessage(e));
-    else setWait(RESEND_SECONDS);
-  };
+  const isSignup = mode === 'signup';
 
   return (
     <Screen style={styles.page}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Row style={{ gap: 12 }}>
-          <IconButton label="رجوع" onPress={() => (step === 'code' ? setStep('enter') : router.back())}>
+          <IconButton label="رجوع" onPress={() => router.back()}>
             <BackIcon />
           </IconButton>
           <T weight="black" size={24} accessibilityRole="header">
@@ -121,43 +106,38 @@ export default function Auth() {
 
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <FadeIn>
-            <Card style={{ gap: 16 }}>
+            <Card style={{ gap: 14 }}>
               {!supabaseConfigured ? (
                 <T size={16} center color={colors.redDeep}>
                   إعدادات الخادم ناقصة في التطبيق. أضف قيم Supabase في ملف ‎.env.local ثم أعد التشغيل.
                 </T>
-              ) : step === 'enter' ? (
+              ) : (
                 <>
-                  <T size={16} color={colors.inkSoft}>
-                    سجّل أو ادخل بنفس الطريقة: نرسل لك رمزاً من 6 أرقام، بدون كلمة مرور.
-                  </T>
-
-                  <View style={styles.segment} accessibilityRole="tablist">
-                    {(['email', 'phone'] as Method[]).map((m) => {
-                      const on = m === method;
-                      return (
-                        <Pressable
-                          key={m}
-                          accessibilityRole="tab"
-                          accessibilityState={{ selected: on }}
-                          onPress={() => switchMethod(m)}
-                          style={[styles.segBtn, on && styles.segOn]}
-                        >
-                          <T weight={on ? 'black' : 'bold'} center color={on ? colors.ink : colors.muted}>
-                            {m === 'email' ? 'الإيميل' : 'رقم الهاتف'}
-                          </T>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+                  <Segment
+                    options={[
+                      ['signup', 'حساب جديد'],
+                      ['signin', 'تسجيل الدخول'],
+                    ]}
+                    value={mode}
+                    onChange={(v) => switchMode(v as Mode)}
+                  />
+                  <Segment
+                    small
+                    options={[
+                      ['email', 'بالإيميل'],
+                      ['phone', 'برقم الهاتف'],
+                    ]}
+                    value={method}
+                    onChange={(v) => switchMethod(v as Method)}
+                  />
 
                   {method === 'email' ? (
                     <TextInput
                       key="email"
-                      value={raw}
+                      value={id}
                       onChangeText={(t) => {
-                        setRaw(t);
-                        setError('');
+                        setId(t);
+                        clearError();
                       }}
                       placeholder="name@example.com"
                       placeholderTextColor={colors.muted}
@@ -166,14 +146,12 @@ export default function Auth() {
                       autoCapitalize="none"
                       autoCorrect={false}
                       autoComplete="email"
-                      textContentType="emailAddress"
+                      textContentType={isSignup ? 'emailAddress' : 'username'}
                       inputMode="email"
-                      returnKeyType="send"
-                      onSubmitEditing={sendCode}
                       style={[styles.input, styles.ltr]}
                     />
                   ) : (
-                    <View style={[styles.phoneRow]}>
+                    <View style={styles.phoneRow}>
                       <View style={styles.prefix}>
                         <T weight="black" size={18}>
                           🇰🇼 965+
@@ -181,10 +159,10 @@ export default function Auth() {
                       </View>
                       <TextInput
                         key="phone"
-                        value={raw}
+                        value={id}
                         onChangeText={(t) => {
-                          setRaw(t);
-                          setError('');
+                          setId(t);
+                          clearError();
                         }}
                         placeholder="9912 3456"
                         placeholderTextColor={colors.muted}
@@ -194,73 +172,78 @@ export default function Auth() {
                         textContentType="telephoneNumber"
                         inputMode="tel"
                         maxLength={16}
-                        returnKeyType="send"
-                        onSubmitEditing={sendCode}
                         style={[styles.input, styles.ltr, { flex: 1 }]}
                       />
                     </View>
                   )}
 
-                  {error ? <ErrorText text={error} /> : null}
-                  <Button label="أرسل الرمز" loading={busy} onPress={sendCode} />
-                  {method === 'phone' ? (
-                    <T size={13} center color={colors.muted}>
-                      تصلك رسالة SMS. قد تُطبَّق رسوم الرسائل حسب شركتك.
-                    </T>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <T size={16} color={colors.inkSoft}>
-                    أرسلنا رمزاً إلى
-                  </T>
-                  <T weight="black" size={18} style={styles.ltrText}>
-                    {method === 'email' ? target : maskPhone(target)}
-                  </T>
-                  <TextInput
-                    value={code}
-                    onChangeText={(t) => {
-                      setCode(cleanCode(t));
-                      setError('');
-                    }}
-                    placeholder="••••••"
-                    placeholderTextColor={colors.muted}
-                    accessibilityLabel="رمز التحقق"
-                    keyboardType="number-pad"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    textContentType="oneTimeCode"
-                    maxLength={8}
-                    autoFocus
-                    returnKeyType="done"
-                    onSubmitEditing={verify}
-                    style={[styles.input, styles.code]}
-                  />
-                  {error ? <ErrorText text={error} /> : null}
-                  <Button label="تأكيد ودخول" tone="green" loading={busy} disabled={code.length < 6} onPress={verify} />
-                  <Row style={{ justifyContent: 'space-between' }}>
-                    <Pressable accessibilityRole="button" onPress={() => setStep('enter')} hitSlop={8}>
-                      <T size={14} color={colors.seaDeep} weight="black">
-                        {method === 'email' ? 'غيّر الإيميل' : 'غيّر الرقم'}
-                      </T>
-                    </Pressable>
+                  <View>
+                    <TextInput
+                      value={password}
+                      onChangeText={(t) => {
+                        setPassword(t);
+                        clearError();
+                      }}
+                      placeholder="كلمة المرور"
+                      placeholderTextColor={colors.muted}
+                      accessibilityLabel="كلمة المرور"
+                      secureTextEntry={!show}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete={isSignup ? 'new-password' : 'current-password'}
+                      textContentType={isSignup ? 'newPassword' : 'password'}
+                      maxLength={72}
+                      returnKeyType={isSignup ? 'next' : 'done'}
+                      onSubmitEditing={isSignup ? undefined : submit}
+                      style={[styles.input, styles.ltr, { paddingRight: 70 }]}
+                    />
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityState={{ disabled: wait > 0 || busy }}
-                      disabled={wait > 0 || busy}
-                      onPress={resend}
+                      accessibilityLabel={show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                      onPress={() => setShow((s) => !s)}
                       hitSlop={8}
+                      style={styles.eye}
                     >
-                      <T size={14} weight="black" color={wait > 0 ? colors.muted : colors.seaDeep}>
-                        {wait > 0 ? `إعادة الإرسال بعد ${toArabicDigits(wait)} ث` : 'أعد إرسال الرمز'}
+                      <T size={13} weight="black" color={colors.seaDeep}>
+                        {show ? 'إخفاء' : 'إظهار'}
                       </T>
                     </Pressable>
-                  </Row>
-                  {method === 'email' ? (
-                    <T size={13} center color={colors.muted}>
-                      ما وصلك؟ شيّك على مجلد الرسائل غير المرغوبة (Spam).
-                    </T>
+                  </View>
+
+                  {isSignup ? (
+                    <>
+                      <TextInput
+                        value={confirm}
+                        onChangeText={(t) => {
+                          setConfirm(t);
+                          clearError();
+                        }}
+                        placeholder="أعد كتابة كلمة المرور"
+                        placeholderTextColor={colors.muted}
+                        accessibilityLabel="تأكيد كلمة المرور"
+                        secureTextEntry={!show}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="new-password"
+                        textContentType="newPassword"
+                        maxLength={72}
+                        returnKeyType="done"
+                        onSubmitEditing={submit}
+                        style={[styles.input, styles.ltr]}
+                      />
+                      <T size={13} color={colors.muted}>
+                        8 أحرف على الأقل، فيها حروف إنجليزية وأرقام.
+                      </T>
+                    </>
                   ) : null}
+
+                  {error ? <ErrorText text={error} /> : null}
+                  <Button label={isSignup ? 'إنشاء الحساب' : 'دخول'} tone={isSignup ? 'gold' : 'green'} loading={busy} onPress={submit} />
+                  <Pressable accessibilityRole="button" onPress={() => switchMode(isSignup ? 'signin' : 'signup')} hitSlop={8}>
+                    <T size={14} center weight="black" color={colors.seaDeep}>
+                      {isSignup ? 'عندك حساب؟ سجّل دخول' : 'ما عندك حساب؟ أنشئ حساباً جديداً'}
+                    </T>
+                  </Pressable>
                 </>
               )}
             </Card>
@@ -268,6 +251,40 @@ export default function Auth() {
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
+  );
+}
+
+function Segment({
+  options,
+  value,
+  onChange,
+  small,
+}: {
+  options: [string, string][];
+  value: string;
+  onChange: (v: string) => void;
+  small?: boolean;
+}) {
+  return (
+    <View style={styles.segment} accessibilityRole="tablist">
+      {options.map(([v, label]) => {
+        const on = v === value;
+        return (
+          <Pressable
+            key={v}
+            accessibilityRole="tab"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(v)}
+            style={[styles.segBtn, small && { height: 40 }, on && styles.segOn]}
+          >
+            <T weight={on ? 'black' : 'bold'} size={small ? 14 : 16} center color={on ? colors.ink : colors.muted}>
+              {label}
+            </T>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
@@ -289,26 +306,25 @@ const styles = StyleSheet.create({
   segBtn: { flex: 1, height: 46, borderRadius: radius.sm, justifyContent: 'center' },
   segOn: { backgroundColor: colors.card, borderWidth: 2, borderColor: colors.gold },
   input: {
-    fontFamily: fonts.black,
-    fontSize: 20,
+    fontFamily: fonts.bold,
+    fontSize: 18,
     color: colors.ink,
     borderWidth: 2,
     borderColor: colors.line,
     borderRadius: radius.md,
     paddingHorizontal: 14,
-    height: 56,
+    height: 54,
     backgroundColor: colors.cardSoft,
   },
   ltr: { textAlign: 'left', writingDirection: 'ltr' },
-  ltrText: { textAlign: 'center', writingDirection: 'ltr' },
+  eye: { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
   phoneRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   prefix: {
-    height: 56,
+    height: 54,
     paddingHorizontal: 12,
     borderRadius: radius.md,
     backgroundColor: colors.sand,
     justifyContent: 'center',
   },
-  code: { textAlign: 'center', letterSpacing: 10, fontSize: 28, writingDirection: 'ltr' },
   error: { backgroundColor: '#FDECEC', borderRadius: radius.sm, padding: 10 },
 });

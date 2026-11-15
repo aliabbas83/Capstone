@@ -90,11 +90,14 @@ export function authErrorMessage(e: AuthError | Error | null | undefined): strin
   if (!e) return '';
   const code = 'code' in e ? (e as AuthError).code : undefined;
   const status = 'status' in e ? (e as AuthError).status : undefined;
-  if (code === 'otp_expired' || /expired|invalid/i.test(e.message)) return 'الرمز غير صحيح أو انتهت صلاحيته. اطلب رمزاً جديداً.';
-  if (code === 'over_email_send_rate_limit' || code === 'over_sms_send_rate_limit' || status === 429)
-    return 'طلبات كثيرة. انتظر قليلاً ثم حاول مرة ثانية.';
-  if (code === 'sms_send_failed' || code === 'phone_provider_disabled' || /sms|phone provider/i.test(e.message))
-    return 'التسجيل برقم الهاتف غير متاح حالياً. جرّب الإيميل.';
+  if (code === 'invalid_credentials' || /invalid login credentials/i.test(e.message))
+    return 'الإيميل/الرقم أو كلمة المرور غير صحيحة.';
+  if (code === 'user_already_exists' || code === 'email_exists' || /already registered/i.test(e.message))
+    return 'هذا الحساب موجود. اختر "تسجيل الدخول" واكتب كلمة المرور.';
+  if (code === 'weak_password') return 'كلمة المرور ضعيفة: 8 أحرف على الأقل، فيها حروف إنجليزية وأرقام.';
+  if (code === 'email_address_invalid') return 'هذا الإيميل غير مقبول. جرّب إيميلاً آخر.';
+  if (code === 'signup_disabled') return 'إنشاء الحسابات متوقف حالياً.';
+  if (code === 'over_request_rate_limit' || status === 429) return 'محاولات كثيرة. انتظر قليلاً ثم حاول مرة ثانية.';
   if (/network|fetch/i.test(e.message)) return 'لا يوجد اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.';
   return 'صار خطأ غير متوقع. حاول مرة ثانية.';
 }

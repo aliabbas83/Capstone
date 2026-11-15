@@ -1,5 +1,14 @@
 import { describe, expect, it } from '@jest/globals';
-import { cleanCode, maskPhone, normalizeEmail, normalizeKuwaitPhone, toLatinDigits } from './validate';
+import {
+  cleanCode,
+  maskPhone,
+  normalizeEmail,
+  normalizeKuwaitPhone,
+  passwordProblem,
+  phoneFromLoginEmail,
+  phoneLoginEmail,
+  toLatinDigits,
+} from './validate';
 
 describe('toLatinDigits', () => {
   it('turns Arabic-Indic and Persian digits into 0-9', () => {
@@ -49,5 +58,30 @@ describe('cleanCode', () => {
 describe('maskPhone', () => {
   it('hides the middle digits', () => {
     expect(maskPhone('+96599123456')).toBe('+965 99•• ••56');
+  });
+});
+
+describe('passwordProblem', () => {
+  it('accepts 8+ chars with letters and digits', () => {
+    expect(passwordProblem('jawla2026')).toBeNull();
+    expect(passwordProblem('Abc12345')).toBeNull();
+  });
+  it('rejects short, letters-only, digits-only and too long', () => {
+    expect(passwordProblem('ab12')).toMatch(/8/);
+    expect(passwordProblem('abcdefgh')).not.toBeNull();
+    expect(passwordProblem('12345678')).not.toBeNull();
+    expect(passwordProblem('a1'.repeat(40))).not.toBeNull();
+  });
+});
+
+describe('phone login email', () => {
+  it('round-trips a +965 number', () => {
+    const e = phoneLoginEmail('+96599123456');
+    expect(e).toBe('96599123456@phone.jawla.invalid');
+    expect(phoneFromLoginEmail(e)).toBe('+96599123456');
+  });
+  it('ignores normal emails', () => {
+    expect(phoneFromLoginEmail('ali@example.com')).toBeNull();
+    expect(phoneFromLoginEmail(null)).toBeNull();
   });
 });
