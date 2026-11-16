@@ -101,14 +101,23 @@ export default function Lobby() {
                     </T>
                   </View>
                 </Row>
-                <Button
-                  label={profile.games_credit > 0 ? 'ابدأ لعبة كاملة' : 'اشترِ لعبة بدينار واحد'}
-                  disabled
-                  accessibilityHint="يُفعَّل في المرحلة القادمة"
-                />
-                <T size={13} center color={colors.muted}>
-                  اللعبة الكاملة والدفع يُفعَّلان قريباً. الحين تقدر تجرّب اللعبة المجانية.
-                </T>
+                {profile.games_credit > 0 ? (
+                  <Button
+                    label="ابدأ لعبة كاملة"
+                    accessibilityHint="تستخدم لعبة واحدة من رصيدك"
+                    onPress={() => {
+                      begin('real');
+                      router.push('/setup/teams');
+                    }}
+                  />
+                ) : (
+                  <>
+                    <Button label="اشترِ لعبة بدينار واحد" disabled accessibilityHint="الدفع يُفعَّل قريباً" />
+                    <T size={13} center color={colors.muted}>
+                      الدفع يُفعَّل قريباً. الحين تقدر تجرّب اللعبة المجانية.
+                    </T>
+                  </>
+                )}
               </>
             )}
           </Card>
@@ -150,7 +159,7 @@ export default function Lobby() {
                     {g.team_names[0]} ضد {g.team_names[1]}
                   </T>
                   <T size={13} color={colors.inkSoft}>
-                    {g.winner !== null ? `🏆 ${g.team_names[g.winner]}` : g.status === 'active' ? 'لم تنتهِ' : '—'}
+                    {g.winner !== null ? `🏆 ${g.team_names[g.winner]}` : g.status === 'active' ? 'لم تنتهِ' : 'انتهت بدون فائز'}
                   </T>
                 </Row>
               ))

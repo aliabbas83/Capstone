@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BackIcon, UndoIcon } from '@/components/icons';
 import { MascotBadge } from '@/components/mascot-badge';
 import { Button, Card, FadeIn, haptic, IconButton, PopIn, Row, Screen, T } from '@/components/ui';
@@ -10,7 +10,8 @@ import { toArabicDigits } from '@/lib/arabic';
 import { colors, radius, ROW } from '@/theme';
 
 export default function Categories() {
-  const { state, categories, pick, undoPick, startRace } = useGame();
+  const { state, categories, pick, undoPick, startRace, starting, startError, catalogStatus, reloadCatalog, categoryLeft } = useGame();
+  const real = state.mode === 'real';
   const { picks, teams } = state;
   const who = nextPicker(picks, CATEGORIES_PER_TEAM);
   const done = who === null;
@@ -54,17 +55,38 @@ export default function Categories() {
         )}
       </View>
 
+      {catalogStatus !== 'ready' ? (
+        <View style={styles.state}>
+          {catalogStatus === 'error' ? (
+            <>
+              <T size={16} center color={colors.redDeep}>
+                ما قدرنا نحمّل الفئات. تأكد من الاتصال.
+              </T>
+              <Button label="حاول مرة ثانية" tone="white" size="md" onPress={reloadCatalog} />
+            </>
+          ) : (
+            <ActivityIndicator color={colors.ink} size="large" accessibilityLabel="جاري تحميل الفئات" />
+          )}
+        </View>
+      ) : categories.filter((c) => !real || categoryLeft(c.id) > 0).length < CATEGORIES_PER_TEAM * 2 ? (
+        <View style={styles.state}>
+          <T size={16} center>
+            خلصت أغلب الأسئلة في حسابك 🎉 أسئلة جديدة قريباً.
+          </T>
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={styles.grid}>
         {categories.map((c, idx) => {
           const o = owner(c.id);
           const taken = o !== null;
+          const empty = real && !taken && categoryLeft(c.id) === 0;
           return (
             <PopIn key={c.id} delay={idx * 40} style={styles.cell}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityState={{ disabled: taken || done }}
-                accessibilityLabel={taken ? `${c.name}، اختارها ${name(o)}` : c.name}
-                disabled={taken || done}
+                accessibilityState={{ disabled: taken || done || empty }}
+                accessibilityLabel={taken ? `${c.name}، اختارها ${name(o)}` : empty ? `${c.name}، خلصت أسئلتها` : c.name}
+                disabled={taken || done || empty}
                 onPress={() => {
                   haptic();
                   pick(c.id);
@@ -72,7 +94,7 @@ export default function Categories() {
                 style={({ pressed }) => [
                   styles.tile,
                   taken && { backgroundColor: colors.team[o], borderColor: colors.teamDeep[o], borderBottomColor: colors.teamDeep[o] },
-                  !taken && done && { opacity: 0.5 },
+                  !taken && (done || empty) && { opacity: 0.5 },
                   pressed && { transform: [{ scale: 0.95 }] },
                 ]}
               >
@@ -84,6 +106,11 @@ export default function Categories() {
                 <T weight="black" size={16} center color={taken ? colors.onTeam[o] : colors.ink}>
                   {c.name}
                 </T>
+                {empty ? (
+                  <T size={12} color={colors.muted}>
+                    خلصت أسئلتها
+                  </T>
+                ) : null}
                 {taken ? (
                   <View style={styles.ownerBadge}>
                     <MascotBadge mascotId={teams[o].mascotId} photoUri={teams[o].photoUri} size={26} ring="#fff" />
@@ -94,23 +121,31 @@ export default function Categories() {
           );
         })}
       </ScrollView>
+      )}
 
+      {startError ? (
+        <View style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+          <T size={14} weight="bold" color={colors.redDeep}>
+            {startError}
+          </T>
+        </View>
+      ) : null}
       <Row style={styles.footer}>
         <Button
           tone="white"
           size="lg"
           label="تراجع"
           icon={<UndoIcon />}
-          disabled={picks[0].length + picks[1].length === 0}
+          disabled={picks[0].length + picks[1].length === 0 || starting}
           onPress={undoPick}
         />
         <Button
-          label="ابدأ السباق!"
+          label={real ? 'ابدأ السباق (لعبة من رصيدك)' : 'ابدأ السباق!'}
           disabled={!done}
+          loading={starting}
           style={{ flex: 1 }}
-          onPress={() => {
-            startRace();
-            router.replace('/race');
+          onPress={async () => {
+            if (await startRace()) router.replace('/race');
           }}
         />
       </Row>
@@ -138,4 +173,6 @@ const styles = StyleSheet.create({
   emojiWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   ownerBadge: { position: 'absolute', top: 6, left: 6 },
   footer: { gap: 10, paddingHorizontal: 20, paddingBottom: 12 },
+  state: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24 },
+  error: { backgroundColor: '#FDECEC', borderRadius: radius.sm, padding: 10, marginHorizontal: 20, marginBottom: 8 },
 });

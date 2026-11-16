@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { other, Points, RaceState, STEAL_SECONDS, TeamIdx } from '@/game/engine';
 import type { Category, Question } from '@/game/demo-questions';
 import { toArabicDigits } from '@/lib/arabic';
@@ -346,11 +346,16 @@ export function PickPanel({
   categories,
   remaining,
   onAsk,
+  busy = false,
+  error = null,
 }: {
   race: RaceState;
   categories: Category[];
   remaining: (categoryId: string, points: Points) => number;
   onAsk: (categoryId: string, points: Points, isComeback: boolean) => void;
+  /** True while the server is fetching the question. */
+  busy?: boolean;
+  error?: string | null;
 }) {
   const [cat, setCat] = useState<string | null>(null);
   const turn = race.turn;
@@ -422,7 +427,7 @@ export function PickPanel({
                   size="md"
                   tone={turn === 0 ? 'team0' : 'team1'}
                   label={`${lv.label} +${toArabicDigits(lv.points)}`}
-                  disabled={left === 0}
+                  disabled={left === 0 || busy}
                   style={{ flex: 1 }}
                   onPress={() => onAsk(cat, lv.points, false)}
                 />
@@ -432,12 +437,18 @@ export function PickPanel({
           {canComeback ? (
             <Button
               label="سؤال الإنقاذ +٥ (مرة وحدة)"
-              disabled={remaining(cat, 5) === 0}
+              disabled={remaining(cat, 5) === 0 || busy}
               onPress={() => onAsk(cat, 5, true)}
             />
           ) : null}
         </View>
       )}
+      {busy ? <ActivityIndicator color={colors.ink} accessibilityLabel="جاري تجهيز السؤال" /> : null}
+      {error ? (
+        <T size={14} weight="bold" center color={colors.redDeep} accessibilityRole="alert">
+          {error}
+        </T>
+      ) : null}
       {canComeback && !cat ? (
         <T size={13} center color={colors.ink}>
           ⭐ عندكم سؤال الإنقاذ بـ٥ نقاط — اختاروا فئة لاستخدامه

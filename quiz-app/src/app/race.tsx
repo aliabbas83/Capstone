@@ -28,10 +28,11 @@ export default function Race() {
     game.changeTeams();
     router.replace('/setup/teams');
   };
-  const end = () => {
+  const end = async () => {
+    const home = game.state.mode === 'real' ? '/lobby' : '/';
+    await game.endGame(); // saves an unfinished real game first, so the lobby shows it right
     setPaused(false);
-    game.begin('demo');
-    router.replace('/');
+    router.replace(home);
   };
 
   const asking = (race.phase === 'question' || race.phase === 'steal') && question;
@@ -55,7 +56,11 @@ export default function Race() {
           race={race}
           categories={game.categories}
           remaining={game.remaining}
-          onAsk={(c, p, comeback) => game.ask(c, p, comeback)}
+          busy={game.asking}
+          error={game.askError}
+          onAsk={(c, p, comeback) => {
+            game.ask(c, p, comeback);
+          }}
         />
       ) : (
         <View style={styles.panelSpacer} />

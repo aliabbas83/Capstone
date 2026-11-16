@@ -48,3 +48,60 @@ export async function remainingQuestions(categoryIds: string[]): Promise<Record<
   if (error) throw error;
   return Object.fromEntries(data.map((r) => [`${r.category_id}:${r.points}`, r.remaining]));
 }
+
+/**
+ * Start a paid game. The server checks everything and takes one credit.
+ * Photos are storage paths from uploadTeamPhoto (or null).
+ */
+export async function startGame(input: {
+  teamNames: [string, string];
+  mascots: [string, string];
+  categories: string[];
+  photos: [string | null, string | null];
+}): Promise<string> {
+  const hasPhoto = input.photos.some(Boolean);
+  const { data, error } = await supabase.rpc('start_game', {
+    p_team_names: input.teamNames,
+    p_team_mascots: input.mascots,
+    p_categories: input.categories,
+    p_team_photos: hasPhoto ? input.photos : null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+/** Mark a game finished (winner 0/1) or abandoned (null). */
+export async function finishGame(gameId: string, winner: 0 | 1 | null): Promise<void> {
+  const { error } = await supabase.rpc('finish_game', { p_game_id: gameId, p_winner: winner });
+  if (error) throw error;
+}
+
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Upload a team photo to the private bucket, inside the user's own folder. Returns its path. */
+export async function uploadTeamPhoto(userId: string, uri: string): Promise<string> {
+  const kind = /^data:image\/png|\.png$/i.test(uri) ? 'png' : /^data:image\/webp|\.webp$/i.test(uri) ? 'webp' : 'jpg';
+  const contentType = kind === 'jpg' ? 'image/jpeg' : `image/${kind}`;
+  const body = await (await fetch(uri)).arrayBuffer();
+  if (body.byteLength > PHOTO_MAX_BYTES) throw new Error('photo_too_big');
+  const name = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const path = `${userId}/${name}.${kind}`;
+  const { error } = await supabase.storage.from('team-photos').upload(path, body, { contentType, upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+/** Turn a server/network error from the game functions into a friendly Arabic message. */
+export function gameErrorMessage(e: unknown): string {
+  const msg = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String(e.message) : '';
+  if (/no credit/i.test(msg)) return 'رصيدك من الألعاب خلص. اشترِ لعبة من صفحة حسابك.';
+  if (/team names must differ/i.test(msg)) return 'اسما الفريقين لازم يكونون مختلفين.';
+  if (/team name/i.test(msg)) return 'اسم الفريق لازم يكون من حرف إلى ٢٠ حرف.';
+  if (/categories/i.test(msg)) return 'اختاروا ٨ فئات مختلفة.';
+  if (/photo_too_big/i.test(msg)) return 'الصورة كبيرة. اختاروا صورة أصغر أو شخصية بدلها.';
+  if (/photo|storage|mime/i.test(msg)) return 'ما قدرنا نرفع صورة الفريق. جرّبوا مرة ثانية أو اختاروا شخصية.';
+  if (/not active|not found/i.test(msg)) return 'هذه اللعبة انتهت. ابدأوا لعبة جديدة.';
+  if (/not signed in|jwt/i.test(msg)) return 'انتهت جلستك. سجّل دخول مرة ثانية.';
+  if (/network|fetch/i.test(msg)) return 'لا يوجد اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.';
+  return 'صار خطأ غير متوقع. حاول مرة ثانية.';
+}
