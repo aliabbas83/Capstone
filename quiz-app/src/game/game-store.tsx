@@ -21,6 +21,7 @@ import {
   fetchCategories,
   finishGame,
   gameErrorMessage,
+  questionImageUrl,
   remainingQuestions,
   startGame,
   uploadTeamPhoto,
@@ -249,9 +250,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
             return 'empty';
           }
           setCatalog((c) => ({ ...c, left: { ...c.left, [k]: Math.max(0, (c.left[k] ?? 1) - 1) } }));
+          const imageUri = questionImageUrl(q.image_path);
           dispatch({
             type: 'ask',
-            question: { id: String(q.question_id), categoryId, points, q: q.question, a: q.answer },
+            question: {
+              id: String(q.question_id),
+              categoryId,
+              points,
+              q: q.question,
+              a: q.answer,
+              ...(imageUri ? { image: { kind: q.image_path!.endsWith('.svg') ? 'svg' : 'png', uri: imageUri } } : {}),
+            },
             isComeback,
           });
           return 'ok';

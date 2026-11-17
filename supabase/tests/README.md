@@ -1,7 +1,7 @@
 # Database tests (pgTAP)
 
 These tests check the security rules in the database: row-level security,
-grants, the server functions and the team-photos storage rules.
+grants, the server functions and the storage rules (team photos, question pictures).
 
 | File | What it checks |
 |---|---|
@@ -11,6 +11,7 @@ grants, the server functions and the team-photos storage rules.
 | `04_orders.test.sql` | price (1000 fils) set on the server; only the service role can create/confirm orders; credit added once, only when invoice + amount match; 5-pending-orders limit |
 | `05_team_photos_storage.test.sql` | `team-photos` bucket is private, 2 MB, images only; each user can only upload, see and delete in their own folder; no overwrite/rename |
 | `06_question_refill.test.sql` | answer key (same answer written differently, numbers per category); a seen answer never comes back; refill API (`add_questions`, `refill_context`, `known_refs`, `check_refill_token`) is service-role only and skips duplicates, same answers and bad fields; daily cron job reads its token from Vault |
+| `07_categories_pictures.test.sql` | the 14 active categories (science, sports, food hidden, not deleted); picture answers count only inside their own category; picture questions need a random-hex file name; `add_questions` accepts pictures only from the `picture` source; `draw_question` returns the picture name; `question-images` bucket is public to read, PNG/SVG only, and nobody can list it |
 
 Every file runs inside `begin; ... rollback;`. Test users, categories,
 questions and files are created inside that transaction and thrown away at the

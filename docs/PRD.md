@@ -38,7 +38,7 @@ Friends and families want a fun Arabic quiz game they can play together on one p
 5. Teams — name + image for each team (gallery or photo).
 6. Categories — teams take turns picking 4 each.
 7. Race — the sea with two lanes, boats, flags, whose turn, comeback button, pause.
-8. Question — category, points, timer, question card, reveal answer, who got it right.
+8. Question — category, points, timer, question card, reveal answer, who got it right. Some categories (flags, maps) show a picture with the question.
 9. Move or push — two big choices, then the boat animation.
 10. Winner — flag rises, confetti, scores, play again / change teams / end.
 11. Pause menu — resume, play again, change teams, end game, sound on/off.

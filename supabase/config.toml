@@ -18,3 +18,6 @@ verify_jwt = false
 
 [functions.refill-questions]
 verify_jwt = false
+
+[functions.seed-pictures]
+verify_jwt = false

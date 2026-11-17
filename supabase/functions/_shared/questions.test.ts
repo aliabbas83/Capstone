@@ -9,6 +9,7 @@ import {
   fitsCategory,
   generate,
   opentdbFor,
+  opentdbKeep,
   parseJsonObject,
   PER_SLOT,
   pick,
@@ -104,6 +105,25 @@ Deno.test('fitsCategory / pick: no capital-city questions in geography (capitals
   assertEquals(out.map((x) => x.answer), ['بافن', 'نيقوسيا']);
 });
 
+Deno.test('planSlots skips picture-only categories (flags come from seed-pictures)', () => {
+  const slots = planSlots([{ id: 'flags', name: 'أعلام' }, ...cats], [], 100);
+  assert(slots.length > 0);
+  assert(!slots.some((s) => s.category.id === 'flags'));
+});
+
+Deno.test('opentdbFor / opentdbKeep: new categories and football-only filter', () => {
+  const s = (id: string, points: 2 | 3 | 4 | 5): Slot => ({ category: { id, name: id }, points, want: 1 });
+  assertEquals(opentdbFor(s('general', 2)), { category: 9, difficulty: 'easy' });
+  assertEquals(opentdbFor(s('cars', 3)), { category: 28, difficulty: 'medium' });
+  assertEquals(opentdbFor(s('football', 4)), { category: 21, difficulty: 'hard' });
+  assertEquals(opentdbFor(s('kuwait', 2)), null);
+  assertEquals(opentdbKeep('football', 'Which country won the 2014 FIFA World Cup?'), true);
+  assertEquals(opentdbKeep('football', 'Who has won the most Grand Slam titles in tennis?'), false);
+  assertEquals(opentdbKeep('football', 'Which team won Super Bowl LI in the NFL?'), false);
+  assertEquals(opentdbKeep('geo', 'What is the capital of Peru?'), false);
+  assertEquals(opentdbKeep('history', 'Who was the first Caliph?'), true);
+});
+
 Deno.test('generate tells the AI the category rule', async () => {
   Deno.env.set('OPENROUTER_API_KEY', 'test-key-not-real');
   const f = fakeFetch(llm({ items: [] }));
@@ -125,6 +145,35 @@ Deno.test('chatJson: needs the key; errors are generic', async () => {
     await assertRejects(() => chatJson('s', 'u', 0), Error, 'openrouter_failed');
   } finally {
     f.restore();
+  }
+});
+
+Deno.test('chatJson: waits and tries once more when OpenRouter says "too many requests"', async () => {
+  Deno.env.set('OPENROUTER_API_KEY', 'test-key-not-real');
+  const real = globalThis.fetch;
+  const replies = [
+    new Response('{"error":{"message":"rate"}}', { status: 429, headers: { 'Retry-After': '0' } }),
+    new Response(JSON.stringify({ choices: [{ message: { content: '{"items":[]}' } }] })),
+  ];
+  let calls = 0;
+  globalThis.fetch = (() => Promise.resolve(replies[calls++])) as typeof fetch;
+  try {
+    assertEquals(await chatJson('s', 'u', 0), { items: [] });
+    assertEquals(calls, 2);
+  } finally {
+    globalThis.fetch = real;
+  }
+
+  calls = 0;
+  globalThis.fetch = (() => {
+    calls++;
+    return Promise.resolve(new Response('{}', { status: 429, headers: { 'Retry-After': '0' } }));
+  }) as typeof fetch;
+  try {
+    await assertRejects(() => chatJson('s', 'u', 0), Error, 'openrouter_failed');
+    assertEquals(calls, 2, 'only one retry');
+  } finally {
+    globalThis.fetch = real;
   }
 });
 

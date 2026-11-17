@@ -24,26 +24,47 @@ export const PER_SLOT = 10;
 
 /** Jawla category -> Open Trivia DB category id. Others are AI-only. */
 export const OPENTDB_CATEGORY: Record<string, number> = {
+  general: 9,
   geo: 22,
   history: 23,
-  science: 17,
-  sports: 21,
   animals: 27,
   tech: 18,
+  cars: 28,
+  football: 21, // "Sports": only the football questions are kept (opentdbKeep)
 };
 const OPENTDB_DIFFICULTY: Partial<Record<Points, string>> = { 2: 'easy', 3: 'medium', 4: 'hard' };
 
-/** Extra per-category rules: told to the AI, and enforced in code by fitsCategory. */
+/** Categories whose questions are pictures made by seed-pictures, never written by the AI. */
+export const PICTURE_ONLY = new Set(['flags']);
+
+/** Extra per-category rules: told to the AI, and partly enforced in code by fitsCategory. */
 const CATEGORY_RULE: Record<string, string> = {
+  general: 'Everyday general knowledge a Gulf family would enjoy: mixed topics, not specialist.',
   geo: 'Do not ask for the capital city of any country, state or region (the quiz has a separate capitals category).',
+  kuwait: 'Only about Kuwait: its geography, history, heritage, landmarks, sea life and pearl diving, sport, culture and daily life. No politics, no living politicians, nothing likely to change.',
+  football: 'Only association football (soccer): clubs, national teams, tournaments, famous players, rules. No other sports. No current-season standings, transfers or records likely to change soon.',
+  prophets: 'Only the stories of the prophets as told in the Quran: names, miracles, places, people and events in their stories. Only facts all Muslims agree on, with respectful wording; nothing disputed between schools or sects, and never about images of the prophets.',
+  medicine: 'General health and the human body for families: organs, senses, vitamins, first aid, healthy habits. No medicine doses, no diagnosis advice, nothing frightening.',
+  cars: 'Cars and driving: car makers and their countries, famous models, logos described in words, history of the car, car parts, road safety and traffic signs. No prices or specs likely to change.',
 };
 const CATEGORY_EXCLUDE: Record<string, RegExp> = {
   geo: /\bcapital\b|عاصم[ةه]/i,
+  football: /\b(NFL|Super Bowl|touchdown|quarterback|American football)\b/i,
+};
+/** Open Trivia DB items for these categories must match (their source category is wider). */
+const OPENTDB_INCLUDE: Record<string, RegExp> = {
+  football: /\b(football|soccer|FIFA|World Cup|UEFA|Premier League|La Liga|Serie A|Bundesliga|Champions League|Ballon d'Or|Euro \d{4}|goalkeeper|striker)\b/i,
 };
 
 /** False when a question (English or Arabic) breaks its category's rule, e.g. a capital-city question in geography. */
 export function fitsCategory(categoryId: string, question: string): boolean {
   return !CATEGORY_EXCLUDE[categoryId]?.test(question);
+}
+
+/** Should this English Open Trivia DB question be translated for this category? */
+export function opentdbKeep(categoryId: string, question: string): boolean {
+  const include = OPENTDB_INCLUDE[categoryId];
+  return fitsCategory(categoryId, question) && (!include || include.test(question));
 }
 
 const ruleFor = (slot: Slot) => (CATEGORY_RULE[slot.category.id] ? `\nCategory rule: ${CATEGORY_RULE[slot.category.id]}` : '');
@@ -63,6 +84,7 @@ export function planSlots(categories: Category[], stock: Stock[], max: number): 
   const have = new Map(stock.map((s) => [`${s.category_id}:${s.points}`, s.count]));
   const gaps: Slot[] = [];
   for (const category of categories) {
+    if (PICTURE_ONLY.has(category.id)) continue;
     for (const points of [2, 3, 4, 5] as Points[]) {
       const gap = TARGETS[points] - (have.get(`${category.id}:${points}`) ?? 0);
       if (gap > 0) gaps.push({ category, points, want: gap });
@@ -152,21 +174,32 @@ export async function chatJson(system: string, user: string, temperature: number
   const key = Deno.env.get('OPENROUTER_API_KEY');
   if (!key) throw new Error('openrouter_not_configured');
   const model = Deno.env.get('OPENROUTER_MODEL') || 'anthropic/claude-sonnet-5.5';
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Title': 'Jawla' },
-    body: JSON.stringify({
-      model,
-      temperature,
-      max_tokens: 6000,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }),
-    signal: AbortSignal.timeout(100_000),
-  });
+  const call = () =>
+    fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-Title': 'Jawla' },
+      body: JSON.stringify({
+        model,
+        temperature,
+        max_tokens: 6000,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      }),
+      signal: AbortSignal.timeout(100_000),
+    });
+  let res = await call();
+  if (res.status === 429) {
+    // Too many requests per minute (new OpenRouter accounts get 20/min): wait, then try once more.
+    await res.body?.cancel();
+    const header = res.headers.get('Retry-After');
+    const after = header === null || header.trim() === '' ? NaN : Number(header);
+    const waitMs = Number.isFinite(after) && after >= 0 ? Math.min(after, 20) * 1000 : 15_000;
+    await new Promise((r) => setTimeout(r, waitMs));
+    res = await call();
+  }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     console.error('openrouter', res.status, data?.error?.message ?? '');

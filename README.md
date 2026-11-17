@@ -163,6 +163,8 @@ Run them against a local or linked database with the Supabase CLI (`npx supabase
 | M6 | MyFatoorah payments (sandbox) | Done |
 | M7 | Sound & polish | Done |
 | M8 | Security check & Sentry | Done |
+| M9 | Daily question refill (Open Trivia DB + AI) | Done |
+| M10 | 14 new categories, flag and map picture questions | Done |
 
 Details and test notes: [`docs/PLAN.md`](docs/PLAN.md).
 

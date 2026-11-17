@@ -120,7 +120,7 @@ function main() {
   out.push(
     'insert into public.questions (category_id, points, question, answer) values',
     items.map((q) => `  (${sql(q.category)}, ${q.points}, ${sql(q.question)}, ${sql(q.answer)})`).join(',\n'),
-    'on conflict (question) do update',
+    'on conflict (question, image_path) do update',
     '  set category_id = excluded.category_id, points = excluded.points, answer = excluded.answer,',
     '      active = true, is_sample = false;',
     '',

@@ -55,7 +55,7 @@ select is(public.check_refill_token(''), false, 'empty refill token is refused')
 select is(public.check_refill_token(null), false, 'missing refill token is refused');
 select ok(public.refill_context() ? 'stock', 'service role reads the refill context');
 
-select throws_ok($$ select public.add_questions('[]'::jsonb, 'manual') $$, '22023', null, 'only opentdb/ai sources');
+select throws_ok($$ select public.add_questions('[]'::jsonb, 'manual') $$, '22023', null, 'only opentdb/ai/picture sources');
 
 create temp table t_res on commit drop as
 select public.add_questions(jsonb_build_array(

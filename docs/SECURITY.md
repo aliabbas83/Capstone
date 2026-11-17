@@ -82,3 +82,13 @@ Checked, no change needed:
 - **Secrets:** `OPENROUTER_API_KEY` lives only in Supabase secrets, added by the owner. Errors return short codes; details go only to the function logs.
 - **License:** Open Trivia DB questions are CC BY-SA 4.0; the app credits them on the home screen, and translated questions are tagged `opentdb`.
 - **Same-answer rule:** `draw_question` never gives an account a question whose normalised answer (`answer_key`) it has already seen, in any game or category. Plain numbers count per category.
+
+## M10 categories and picture questions (2026-11-17)
+
+- **14 categories:** science, sports and food are hidden (`active = false`), not deleted, so old games and seen history stay valid. The app only lists active categories, and `start_game` on the server refuses any game that does not have 8 different active categories.
+- **Picture bucket `question-images`:** public to read (pictures are not secret once a question is asked), PNG and SVG only, 512 KB limit. File names are 32 random hex characters, so a name never gives away the answer, and a database check refuses any other name. There is no list policy: nobody can list the bucket to see every picture in advance (pgTAP `07_categories_pictures`).
+- **Only the server adds pictures:** the edge function `seed-pictures` uploads flags and map outlines with the service role. Like the refill, it only runs with the `refill_token` from Vault (401 otherwise). If a picture uploads but its question is not saved, the picture is deleted again.
+- **SVG maps are drawn by our own code** from map numbers (one `<path>`, no scripts, no links), and the app shows them with `react-native-svg`, which does not run scripts.
+- **The app never builds a picture link from anything but a hex name:** `questionImageUrl` refuses any other value from the server.
+- **Same-answer rule for pictures:** a flag or map answer counts only inside its own category, so seeing Japan's flag does not block a text question about Japan, and the flag and the map of the same country are separate questions.
+- **Credits:** flag images from flagcdn.com and map shapes from Natural Earth (via world-atlas) are both public domain.

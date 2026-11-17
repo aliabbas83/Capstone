@@ -73,7 +73,7 @@ export type Database = {
     Functions: {
       draw_question: {
         Args: { p_category_id: string; p_game_id: string; p_points: number };
-        Returns: { answer: string; points: number; question: string; question_id: number }[];
+        Returns: { answer: string; points: number; question: string; question_id: number; image_path: string | null }[];
       };
       start_game: {
         Args: { p_team_names: string[]; p_team_mascots: string[]; p_categories: string[]; p_team_photos?: (string | null)[] | null };

@@ -42,6 +42,15 @@ export async function drawQuestion(gameId: string, categoryId: string, points: 2
   return data[0] ?? null;
 }
 
+/**
+ * Public web address of a question picture (flag or map), or null for a text question.
+ * Only names the server gave us are accepted (32 hex characters + .png/.svg).
+ */
+export function questionImageUrl(path: string | null | undefined): string | null {
+  if (!path || !/^[0-9a-f]{32}\.(png|svg)$/.test(path)) return null;
+  return supabase.storage.from('question-images').getPublicUrl(path).data.publicUrl;
+}
+
 /** Unseen questions left for this account, keyed "categoryId:points". */
 export async function remainingQuestions(categoryIds: string[]): Promise<Record<string, number>> {
   const { data, error } = await supabase.rpc('remaining_questions', { p_category_ids: categoryIds });

@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SvgUri } from 'react-native-svg';
 import { other, Points, RaceState, STEAL_SECONDS, TeamIdx } from '@/game/engine';
-import type { Category, Question } from '@/game/demo-questions';
+import type { Category, Question, QuestionImage } from '@/game/demo-questions';
 import { toArabicDigits } from '@/lib/arabic';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { play } from '@/lib/sound';
@@ -129,6 +130,8 @@ export function QuestionOverlay({
             {question.q}
           </T>
 
+          {question.image ? <QuestionPicture key={question.id} image={question.image} /> : null}
+
           {timeUp ? (
             <T weight="bold" size={15} center color={colors.redDeep} accessibilityLiveRegion="assertive">
               {stealing ? 'انتهى الوقت! اكشف الإجابة' : `انتهى الوقت! الفرصة الآن لـ ${rivalName}`}
@@ -189,6 +192,52 @@ export function QuestionOverlay({
         </Card>
       </Animated.View>
     </Backdrop>
+  );
+}
+
+/**
+ * The picture of a picture question (a flag or a country's outline).
+ * Shows a spinner while it loads, and a retry button if it fails, so the host is never stuck.
+ */
+function QuestionPicture({ image }: { image: QuestionImage }) {
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [attempt, setAttempt] = useState(0);
+  const onLoad = () => setStatus('ready');
+  const onError = () => setStatus('error');
+
+  return (
+    <View style={styles.picture} accessible accessibilityRole="image" accessibilityLabel="صورة السؤال">
+      {status !== 'error' ? (
+        'source' in image ? (
+          <Image key={attempt} source={image.source} style={styles.pictureImg} resizeMode="contain" onLoad={onLoad} onError={onError} />
+        ) : image.kind === 'svg' ? (
+          <SvgUri key={attempt} uri={image.uri} width="100%" height="100%" onLoad={onLoad} onError={onError} />
+        ) : (
+          <Image key={attempt} source={{ uri: image.uri }} style={styles.pictureImg} resizeMode="contain" onLoad={onLoad} onError={onError} />
+        )
+      ) : null}
+      {status === 'loading' ? (
+        <View style={styles.pictureOverlay}>
+          <ActivityIndicator color={colors.ink} accessibilityLabel="جاري تحميل الصورة" />
+        </View>
+      ) : null}
+      {status === 'error' ? (
+        <View style={[styles.pictureOverlay, { gap: 8 }]} accessibilityLiveRegion="polite">
+          <T size={14} center color={colors.redDeep}>
+            ما قدرنا نحمّل الصورة. تأكد من الاتصال.
+          </T>
+          <Button
+            label="حاول مرة ثانية"
+            tone="white"
+            size="md"
+            onPress={() => {
+              setStatus('loading');
+              setAttempt((a) => a + 1);
+            }}
+          />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -565,6 +614,15 @@ const styles = StyleSheet.create({
   qCard: { gap: 14, borderWidth: 4, borderRadius: radius.xl, padding: 18 },
   pointsBadge: { backgroundColor: colors.gold, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 2 },
   answerer: { borderRadius: radius.lg, padding: 10 },
+  picture: {
+    height: 180,
+    borderRadius: radius.lg,
+    backgroundColor: '#EEF7FB',
+    padding: 10,
+    overflow: 'hidden',
+  },
+  pictureImg: { width: '100%', height: '100%' },
+  pictureOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 12 },
   answerBox: {
     backgroundColor: '#E3F9EA',
     borderRadius: radius.lg,
