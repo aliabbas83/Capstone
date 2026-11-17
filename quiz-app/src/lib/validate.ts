@@ -49,6 +49,19 @@ export function passwordProblem(p: string): string | null {
   return null;
 }
 
+// ── Team names (same rules as the server's start_game) ──
+export const TEAM_NAME_MAX = 20;
+
+/** Arabic error text, or null when both team names are acceptable. */
+export function teamNamesProblem(a: string, b: string): string | null {
+  const names = [a.trim(), b.trim()];
+  // Count characters like Postgres char_length (an emoji is one character).
+  if (names.some((n) => n.length === 0)) return 'اكتبوا اسم لكل فريق.';
+  if (names.some((n) => [...n].length > TEAM_NAME_MAX)) return `اسم الفريق لازم يكون ${TEAM_NAME_MAX} حرف أو أقل.`;
+  if (names[0].toLowerCase() === names[1].toLowerCase()) return 'اسما الفريقين لازم يكونون مختلفين.';
+  return null;
+}
+
 // ── Phone sign-in without SMS ──
 // Supabase phone sign-up needs an SMS provider, so a phone number is stored as an
 // internal login name on a reserved domain (.invalid never receives mail).
