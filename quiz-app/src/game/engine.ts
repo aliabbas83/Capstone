@@ -13,6 +13,17 @@ export const COMEBACK_POINTS: Points = 5;
 export const COMEBACK_TRIGGER = 4;
 export const STEAL_SECONDS = 15;
 
+/** The three normal levels (the 5-point comeback is separate). */
+export type LevelPoints = 2 | 3 | 4;
+/**
+ * How many times each team may use each level: easy 2, medium 4, hard 4. Choosing a level uses one,
+ * and so does stealing a question of that level. Once a team has used all 10, its counts start again.
+ */
+export const LEVEL_LIMITS: Readonly<Record<LevelPoints, number>> = { 2: 2, 3: 4, 4: 4 };
+export type LevelUses = Record<LevelPoints, number>;
+const NO_USES: LevelUses = { 2: 0, 3: 0, 4: 0 };
+const isLevel = (p: Points): p is LevelPoints => p !== COMEBACK_POINTS;
+
 export interface RaceTeam {
   name: string;
   mascotId: string;
@@ -20,6 +31,22 @@ export interface RaceTeam {
   categories: string[];
   position: number;
   comeback: Comeback;
+  /** Picks used per level since the last reset (see LEVEL_LIMITS). */
+  levelUses: LevelUses;
+}
+
+/** Picks a team has left at this level. The comeback level is not limited here (it has its own once-only rule). */
+export function levelsLeft(team: RaceTeam, points: Points): number {
+  if (!isLevel(points)) return Infinity;
+  return Math.max(0, LEVEL_LIMITS[points] - (team.levelUses?.[points] ?? 0));
+}
+
+/** Use one pick of this level (if any is left). After the last of all 10, the counts start again. */
+function spendPick(team: RaceTeam, points: Points): RaceTeam {
+  if (!isLevel(points) || levelsLeft(team, points) === 0) return team;
+  const levelUses = { ...NO_USES, ...team.levelUses, [points]: (team.levelUses?.[points] ?? 0) + 1 };
+  const allUsed = ([2, 3, 4] as const).every((p) => levelUses[p] >= LEVEL_LIMITS[p]);
+  return { ...team, levelUses: allUsed ? { ...NO_USES } : levelUses };
 }
 
 export interface Pending {
@@ -53,15 +80,17 @@ export interface RaceState {
 
 export const other = (t: TeamIdx): TeamIdx => (t === 0 ? 1 : 0);
 
+type NewTeam = Omit<RaceTeam, 'position' | 'comeback' | 'levelUses'>;
+
 export function createRace(
-  teams: [Omit<RaceTeam, 'position' | 'comeback'>, Omit<RaceTeam, 'position' | 'comeback'>],
+  teams: [NewTeam, NewTeam],
   laneLength: number,
 ): RaceState {
   return {
     laneLength,
     teams: [
-      { ...teams[0], position: 0, comeback: 'locked' },
-      { ...teams[1], position: 0, comeback: 'locked' },
+      { ...teams[0], position: 0, comeback: 'locked', levelUses: { ...NO_USES } },
+      { ...teams[1], position: 0, comeback: 'locked', levelUses: { ...NO_USES } },
     ],
     turn: 0,
     phase: 'pick',
@@ -82,9 +111,10 @@ export function startQuestion(
   if (isComeback && s.teams[s.turn].comeback !== 'available') return s;
   if (isComeback !== (q.points === COMEBACK_POINTS)) return s;
   if (s.usedQuestionIds.includes(q.questionId)) return s;
+  if (levelsLeft(s.teams[s.turn], q.points) === 0) return s;
 
   const teams = [...s.teams] as [RaceTeam, RaceTeam];
-  if (isComeback) teams[s.turn] = { ...teams[s.turn], comeback: 'used' };
+  teams[s.turn] = isComeback ? { ...teams[s.turn], comeback: 'used' } : spendPick(teams[s.turn], q.points);
 
   return {
     ...s,
@@ -106,7 +136,11 @@ export function markCorrect(s: RaceState): RaceState {
 export function markWrong(s: RaceState): RaceState {
   if (!s.pending) return s;
   if (s.phase === 'question') {
-    return { ...s, phase: 'steal', pending: { ...s.pending, answering: other(s.pending.owner) } };
+    // The stealing team uses one pick of this level too (if it has one left; it may always steal).
+    const stealer = other(s.pending.owner);
+    const teams = [...s.teams] as [RaceTeam, RaceTeam];
+    teams[stealer] = spendPick(teams[stealer], s.pending.points);
+    return { ...s, teams, phase: 'steal', pending: { ...s.pending, answering: stealer } };
   }
   if (s.phase === 'steal') return endTurn(s);
   return s;

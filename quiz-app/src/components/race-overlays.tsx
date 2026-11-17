@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
-import { other, Points, RaceState, STEAL_SECONDS, TeamIdx } from '@/game/engine';
+import { LEVEL_LIMITS, LevelPoints, levelsLeft, other, RaceState, STEAL_SECONDS, TeamIdx, type Points } from '@/game/engine';
 import type { Category, Question, QuestionImage } from '@/game/demo-questions';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { play } from '@/lib/sound';
@@ -548,7 +548,7 @@ export function PickPanel({
   const team = race.teams[turn];
   const ids = [...race.teams[0].categories, ...race.teams[1].categories];
   const byId = Object.fromEntries(categories.map((c) => [c.id, c]));
-  const levels: { points: Points; label: string }[] = [
+  const levels: { points: LevelPoints; label: string }[] = [
     { points: 2, label: 'سهل' },
     { points: 3, label: 'متوسط' },
     { points: 4, label: 'صعب' },
@@ -620,16 +620,21 @@ export function PickPanel({
           <Row style={{ gap: 8 }}>
             {levels.map((lv) => {
               const left = remaining(cat, lv.points);
+              const picks = levelsLeft(team, lv.points);
               return (
-                <Button
-                  key={lv.points}
-                  size="md"
-                  tone={turn === 0 ? 'team0' : 'team1'}
-                  label={left === 0 ? `${lv.label}: خلصت` : `${lv.label} +${lv.points}`}
-                  disabled={left === 0 || busy}
-                  style={{ flex: 1 }}
-                  onPress={() => onAsk(cat, lv.points, false)}
-                />
+                <View key={lv.points} style={{ flex: 1, gap: 4 }}>
+                  <Button
+                    size="md"
+                    tone={turn === 0 ? 'team0' : 'team1'}
+                    label={picks === 0 ? `${lv.label}: انتهت` : left === 0 ? `${lv.label}: خلصت` : `${lv.label} +${lv.points}`}
+                    accessibilityHint={picks > 0 ? `باقي لكم ${picks} من ${LEVEL_LIMITS[lv.points]}` : undefined}
+                    disabled={picks === 0 || left === 0 || busy}
+                    onPress={() => onAsk(cat, lv.points, false)}
+                  />
+                  <T size={12} weight="bold" center color={picks === 0 ? colors.redDeep : colors.inkSoft}>
+                    {picks === 0 ? 'استخدمتوها' : `باقي ${picks} من ${LEVEL_LIMITS[lv.points]}`}
+                  </T>
+                </View>
               );
             })}
           </Row>
@@ -646,6 +651,11 @@ export function PickPanel({
       {error ? (
         <T size={14} weight="bold" center color={colors.redDeep} accessibilityRole="alert">
           {error}
+        </T>
+      ) : null}
+      {!cat ? (
+        <T size={13} center color={colors.inkSoft}>
+          {`مرّاتكم الباقية: سهل ${levelsLeft(team, 2)} · متوسط ${levelsLeft(team, 3)} · صعب ${levelsLeft(team, 4)}`}
         </T>
       ) : null}
       {canComeback && !cat ? (

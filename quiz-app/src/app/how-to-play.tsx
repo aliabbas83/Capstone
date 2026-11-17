@@ -2,14 +2,15 @@ import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { BackIcon, UndoIcon } from '@/components/icons';
 import { Button, Card, IconButton, Row, Screen, T } from '@/components/ui';
-import { COMEBACK_POINTS, COMEBACK_TRIGGER, STEAL_SECONDS } from '@/game/engine';
+import { COMEBACK_POINTS, COMEBACK_TRIGGER, LEVEL_LIMITS, STEAL_SECONDS } from '@/game/engine';
 import { CATEGORIES_PER_TEAM, DEMO_LANE_LENGTH, REAL_LANE_LENGTH } from '@/game/demo-questions';
 import { colors, radius } from '@/theme';
 
-/** The whole game in seven short steps: something the host can read out in about 30 seconds. */
+/** The whole game in eight short steps: something the host can read out in about 30 seconds. */
 const STEPS = [
   `الفريقين يختارون ${CATEGORIES_PER_TEAM * 2} فئات بالتناوب، ${CATEGORIES_PER_TEAM} لكل فريق.`,
   'في دوركم اختاروا أي فئة منها، وبعدها الصعوبة: سهل +2، متوسط +3، صعب +4.',
+  `لكل فريق: سهل ${LEVEL_LIMITS[2]} مرّات، متوسط ${LEVEL_LIMITS[3]}، صعب ${LEVEL_LIMITS[4]}. السرقة تُحسب من مرّاتكم، ولما تخلصونها كلها تتجدد.`,
   'المقدّم يقرأ السؤال بصوت عالي، يكشف الإجابة، ويضغط صح أو خطأ.',
   'جاوبتوا صح؟ تقدّموا بقاربكم، أو رجّعوا قارب الخصم نفس الخطوات.',
   `غلطتوا أو خلص الوقت؟ الفريق الثاني عنده ${STEAL_SECONDS} ثانية يسرق السؤال.`,

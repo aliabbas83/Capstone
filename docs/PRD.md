@@ -17,7 +17,7 @@ Friends and families want a fun Arabic quiz game they can play together on one p
 1. **Two teams**, each with a **name** and a **matching image**: picked from a mascot gallery (the app suggests one from the name) or a photo uploaded from the phone.
 2. **Categories**: each team picks **4 categories**, taking turns. A category taken by one team can't be taken by the other (8 different categories per game).
 3. **Race**: each team has a rowing boat in its own lane. The lane is **20 steps** long and ends with a finish line and a flag.
-4. **Turns** alternate. On its turn, a team picks **any of the 8 categories** and a difficulty: **easy = 2, medium = 3, hard = 4 points**.
+4. **Turns** alternate. On its turn, a team picks **any of the 8 categories** and a difficulty: **easy = 2, medium = 3, hard = 4 points**. Each team can use **easy 2 times, medium 4 times and hard 4 times** per game. Stealing a question also uses one of that level for the stealing team (a team can always steal, even with none left). Once a team has used all 10, its counts start again. The 5-point comeback question does not count.
 5. **Timer**: 60 s by default (30 / 60 / 90, or no timer, in setup); the 15 s steal timer stays. The host reveals the answer and taps who got it right.
 6. **Correct answer** → the team chooses: **move own boat forward** OR **push the other boat back** by the question's points (1 point = 1 step). Boats can't go behind the start line.
 7. **Wrong answer / time out** → the other team gets **one 15 s chance to steal**. If right, they get the points and make the same move-or-push choice. Then the turn passes as normal.

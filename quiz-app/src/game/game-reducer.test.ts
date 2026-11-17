@@ -14,6 +14,7 @@ import {
   TIMER_CHOICES,
 } from './game-reducer';
 import { DEMO_LANE_LENGTH, DEMO_QUESTIONS, REAL_LANE_LENGTH } from './demo-questions';
+import { levelsLeft } from './engine';
 
 const q = (points: 2 | 3 | 4) => DEMO_QUESTIONS.find((x) => x.points === points)!;
 
@@ -269,5 +270,37 @@ describe('undo the last call (host tapped the wrong button)', () => {
   it('a new race or play again clears the undo', () => {
     const s = gameReducer(gameReducer(midGame(), { type: 'correct' }), { type: 'playAgain' });
     expect(canUndo(s)).toBe(false);
+  });
+});
+
+describe('level limits in the store', () => {
+  it('undoing "wrong" gives the stealing team its pick back', () => {
+    const open = midGame();
+    const stealer = open.race!.pending!.answering === 0 ? 1 : 0;
+    expect(levelsLeft(open.race!.teams[stealer], 3)).toBe(4);
+    const s = gameReducer(open, { type: 'wrong' });
+    expect(levelsLeft(s.race!.teams[stealer], 3)).toBe(3);
+    const back = gameReducer(s, { type: 'undo' });
+    expect(levelsLeft(back.race!.teams[stealer], 3)).toBe(4);
+  });
+
+  it('asking a level the team has used up does not open a question', () => {
+    let s = gameReducer(initialGameState, { type: 'begin', mode: 'demo' });
+    for (const c of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) s = gameReducer(s, { type: 'pick', categoryId: c });
+    s = gameReducer(s, { type: 'startRace', gameId: null, laneLength: DEMO_LANE_LENGTH });
+    const easy = DEMO_QUESTIONS.filter((x) => x.points === 2);
+    // Team A plays easy twice (team B misses its turns in between with "wrong" twice).
+    for (let i = 0; i < 2; i++) {
+      s = gameReducer(s, { type: 'ask', question: easy[i * 2], isComeback: false });
+      s = gameReducer(s, { type: 'correct' });
+      s = gameReducer(s, { type: 'choose', kind: 'forward' });
+      s = gameReducer(s, { type: 'ask', question: easy[i * 2 + 1], isComeback: false });
+      s = gameReducer(s, { type: 'wrong' });
+      s = gameReducer(s, { type: 'wrong' });
+    }
+    expect(s.race!.turn).toBe(0);
+    expect(levelsLeft(s.race!.teams[0], 2)).toBe(0);
+    const again = gameReducer(s, { type: 'ask', question: easy[5], isComeback: false });
+    expect(again).toBe(s);
   });
 });

@@ -7,6 +7,8 @@ import {
   COMEBACK_POINTS,
   COMEBACK_TRIGGER,
   createRace,
+  LEVEL_LIMITS,
+  levelsLeft,
   markCorrect,
   markWrong,
   nextPicker,
@@ -388,5 +390,94 @@ describe('category picking', () => {
     expect(nextPicker(p, 4)).toBe(1);
     p = undoPick(undoPick(p));
     expect(p).toEqual([[], []]);
+  });
+});
+
+describe('level limits (each team, each game)', () => {
+  /** Give the turn back to team `t` with nothing open, so a test can ask several questions in a row. */
+  const turnOf = (s: RaceState, t: TeamIdx): RaceState => ({ ...s, turn: t, phase: 'pick', pending: null });
+  /** Team `t` opens a question (its turn) and the turn is handed straight back. */
+  const use = (s: RaceState, t: TeamIdx, points: Points) => turnOf(ask(turnOf(s, t), points), t);
+  const left = (s: RaceState, t: TeamIdx) => [levelsLeft(s.teams[t], 2), levelsLeft(s.teams[t], 3), levelsLeft(s.teams[t], 4)];
+
+  it('easy can be chosen 2 times, medium 4 times and hard 4 times', () => {
+    expect(LEVEL_LIMITS).toEqual({ 2: 2, 3: 4, 4: 4 });
+    expect(left(race(), 0)).toEqual([2, 4, 4]);
+    expect(left(race(), 1)).toEqual([2, 4, 4]);
+  });
+
+  it('a third easy question is refused', () => {
+    let s = use(use(race(), 0, 2), 0, 2);
+    expect(levelsLeft(s.teams[0], 2)).toBe(0);
+    s = turnOf(s, 0);
+    expect(ask(s, 2)).toBe(s);
+  });
+
+  it('a fifth medium or hard question is refused', () => {
+    let s = race();
+    for (let i = 0; i < 4; i++) s = use(use(s, 0, 3), 0, 4);
+    expect(left(s, 0)).toEqual([2, 0, 0]);
+    s = turnOf(s, 0);
+    expect(ask(s, 3)).toBe(s);
+    expect(ask(s, 4)).toBe(s);
+    expect(ask(s, 2).phase).toBe('question');
+  });
+
+  it('each team has its own counts', () => {
+    const s = use(use(race(), 0, 2), 0, 2);
+    expect(left(s, 0)).toEqual([0, 4, 4]);
+    expect(left(s, 1)).toEqual([2, 4, 4]);
+    expect(ask(turnOf(s, 1), 2).phase).toBe('question');
+  });
+
+  it('the counts start again once a team has used all 10 picks', () => {
+    let s = race();
+    s = use(use(s, 0, 2), 0, 2);
+    for (let i = 0; i < 4; i++) s = use(s, 0, 3);
+    for (let i = 0; i < 3; i++) s = use(s, 0, 4);
+    expect(left(s, 0)).toEqual([0, 0, 1]);
+    s = use(s, 0, 4);
+    expect(left(s, 0)).toEqual([2, 4, 4]);
+    expect(ask(turnOf(s, 0), 2).phase).toBe('question');
+  });
+
+  it('the comeback question does not use a pick', () => {
+    const s = at(race(), 0, 17, 0);
+    const opened = ask({ ...s, teams: [{ ...s.teams[0], comeback: 'available' }, s.teams[1]] }, COMEBACK_POINTS, true);
+    expect(opened.phase).toBe('question');
+    expect(left(opened, 0)).toEqual([2, 4, 4]);
+  });
+
+  it('a steal also uses one pick of that level from the stealing team', () => {
+    const s = markWrong(ask(race(), 3));
+    expect(s.phase).toBe('steal');
+    expect(left(s, 0)).toEqual([2, 3, 4]);
+    expect(left(s, 1)).toEqual([2, 3, 4]);
+  });
+
+  it('a team can still steal when it has no picks left at that level (the count stays at 0)', () => {
+    let s = use(use(race(), 1, 2), 1, 2);
+    expect(levelsLeft(s.teams[1], 2)).toBe(0);
+    s = markWrong(ask(turnOf(s, 0), 2));
+    expect(s.phase).toBe('steal');
+    expect(s.pending?.answering).toBe(1);
+    expect(left(s, 1)).toEqual([0, 4, 4]);
+  });
+
+  it('a steal that uses the last pick starts the stealing team again', () => {
+    let s = race();
+    s = use(use(s, 1, 2), 1, 2);
+    for (let i = 0; i < 4; i++) s = use(s, 1, 3);
+    for (let i = 0; i < 3; i++) s = use(s, 1, 4);
+    expect(left(s, 1)).toEqual([0, 0, 1]);
+    s = markWrong(ask(turnOf(s, 0), 4));
+    expect(left(s, 1)).toEqual([2, 4, 4]);
+  });
+
+  it('a second miss (nobody got it) does not use any more picks', () => {
+    const s = markWrong(markWrong(ask(race(), 4)));
+    expect(s.phase).toBe('pick');
+    expect(left(s, 0)).toEqual([2, 4, 3]);
+    expect(left(s, 1)).toEqual([2, 4, 3]);
   });
 });

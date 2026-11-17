@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { MoveKind, Points, TeamIdx } from './engine';
+import { levelsLeft, MoveKind, Points, TeamIdx } from './engine';
 import { Category, DEMO_CATEGORIES, DEMO_LANE_LENGTH, DEMO_QUESTIONS, REAL_LANE_LENGTH } from './demo-questions';
 import {
   askErrorScope,
@@ -237,6 +237,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       askError,
       ask: async (categoryId, points, isComeback = false) => {
         setAskError(null);
+        // This team has used this level up (easy 2, medium 4, hard 4): don't use up a question for nothing.
+        const race = state.race;
+        if (race && !isComeback && levelsLeft(race.teams[race.turn], points) === 0) {
+          setAskError('استخدمتوا كل مرّاتكم في هذه الصعوبة. اختاروا غيرها.');
+          return 'error';
+        }
         if (!real) {
           const options = pool(categoryId, points);
           if (options.length === 0) return 'empty';

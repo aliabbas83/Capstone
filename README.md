@@ -181,6 +181,7 @@ Run them against a local or linked database with the Supabase CLI (`npx supabase
 | M9 | Daily question refill (Open Trivia DB + AI) | Done |
 | M10 | 14 new categories, flag and map picture questions | Done |
 | M11 | Easier to play: undo, no-timer, how-to-play, tips, turn banner, bigger pictures, payment summary | Done |
+| M12 | Level limits per team: easy 2, medium 4, hard 4 (steals count, reset after all 10) | Done |
 
 Details and test notes: [`docs/PLAN.md`](docs/PLAN.md).
 
