@@ -90,6 +90,7 @@ export default function Teams() {
 function TeamCard({ index, team, onChange }: { index: TeamIdx; team: TeamDraft; onChange: (p: Partial<TeamDraft>) => void }) {
   const [gallery, setGallery] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const color = colors.team[index];
   const suggested = suggestMascot(team.name);
 
@@ -103,7 +104,9 @@ function TeamCard({ index, team, onChange }: { index: TeamIdx; team: TeamDraft; 
   };
 
   const pickPhoto = async () => {
+    if (picking) return;
     setPhotoError(null);
+    setPicking(true);
     try {
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -114,6 +117,8 @@ function TeamCard({ index, team, onChange }: { index: TeamIdx; team: TeamDraft; 
       if (!res.canceled && res.assets[0]) onChange({ photoUri: res.assets[0].uri });
     } catch {
       setPhotoError('ما قدرنا نفتح الصور. جرّب مرة ثانية أو اختر شخصية.');
+    } finally {
+      setPicking(false);
     }
   };
 
@@ -135,13 +140,13 @@ function TeamCard({ index, team, onChange }: { index: TeamIdx; team: TeamDraft; 
             style={[styles.input, team.name === '' && styles.inputEmpty]}
             returnKeyType="done"
           />
-          {!team.photoUri ? (
-            <T size={13} color={colors.muted}>
-              {suggested && suggested.id === team.mascotId
+          <T size={13} color={colors.muted}>
+            {team.photoUri
+              ? 'الصورة: من جهازك'
+              : suggested && suggested.id === team.mascotId
                 ? `صورة تناسب الاسم: ${suggested.label}`
                 : `الصورة: ${MASCOT_BY_ID[team.mascotId]?.label ?? ''}`}
-            </T>
-          ) : null}
+          </T>
         </View>
       </Row>
 
@@ -156,11 +161,11 @@ function TeamCard({ index, team, onChange }: { index: TeamIdx; team: TeamDraft; 
         {team.photoUri ? (
           <Button size="sm" tone="white" label="إزالة الصورة" style={{ flex: 1 }} onPress={() => onChange({ photoUri: null })} />
         ) : (
-          <Button size="sm" tone="white" label="من الصور" icon={<ImageIcon size={18} />} style={{ flex: 1 }} onPress={pickPhoto} />
+          <Button size="sm" tone="white" label="من الصور" icon={<ImageIcon size={18} />} loading={picking} style={{ flex: 1 }} onPress={pickPhoto} />
         )}
       </Row>
       {photoError ? (
-        <T size={13} color={colors.redDeep}>
+        <T size={13} color={colors.redDeep} accessibilityRole="alert">
           {photoError}
         </T>
       ) : null}

@@ -59,20 +59,26 @@ export default function Categories() {
         <View style={styles.state}>
           {catalogStatus === 'error' ? (
             <>
-              <T size={16} center color={colors.redDeep}>
+              <T size={16} center color={colors.redDeep} accessibilityRole="alert">
                 ما قدرنا نحمّل الفئات. تأكد من الاتصال.
               </T>
               <Button label="حاول مرة ثانية" tone="white" size="md" onPress={reloadCatalog} />
             </>
           ) : (
-            <ActivityIndicator color={colors.ink} size="large" accessibilityLabel="جاري تحميل الفئات" />
+            <>
+              <ActivityIndicator color={colors.ink} size="large" accessibilityLabel="جاري تحميل الفئات" />
+              <T size={15} center color={colors.ink}>
+                جاري تحميل الفئات…
+              </T>
+            </>
           )}
         </View>
       ) : categories.filter((c) => !real || categoryLeft(c.id) > 0).length < CATEGORIES_PER_TEAM * 2 ? (
         <View style={styles.state}>
-          <T size={16} center>
+          <T size={16} center accessibilityLiveRegion="polite">
             خلصت أغلب الأسئلة في حسابك 🎉 أسئلة جديدة قريباً.
           </T>
+          <Button label="حدّث القائمة" tone="white" size="md" onPress={reloadCatalog} />
         </View>
       ) : (
       <ScrollView contentContainerStyle={styles.grid}>
