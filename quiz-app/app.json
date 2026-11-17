@@ -27,7 +27,8 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-audio"
+      "expo-audio",
+      "expo-web-browser"
     ],
     "scheme": "jawla",
     "backgroundColor": "#140A33",

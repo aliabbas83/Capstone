@@ -6,6 +6,7 @@ import { Button, Card, FadeIn, IconButton, Row, Screen, T } from '@/components/u
 import { useGame } from '@/game/game-store';
 import { toArabicDigits } from '@/lib/arabic';
 import { useAuth } from '@/lib/auth';
+import { buyGame, PAY_MESSAGES, paymentErrorMessage, type PayStatus } from '@/lib/payments';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, phoneFromLoginEmail } from '@/lib/validate';
 import { colors, radius } from '@/theme';
@@ -20,6 +21,8 @@ export default function Lobby() {
   const [refreshing, setRefreshing] = useState(false);
   const [confirmOut, setConfirmOut] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [payNote, setPayNote] = useState<{ status: PayStatus } | { error: string } | null>(null);
   const userId = session?.user.id;
 
   const loadGames = useCallback(async () => {
@@ -50,6 +53,21 @@ export default function Lobby() {
     setRefreshing(true);
     await Promise.all([refreshProfile(), loadGames()]);
     setRefreshing(false);
+  };
+
+  const onBuy = async () => {
+    setPaying(true);
+    setPayNote(null);
+    try {
+      const { status } = await buyGame();
+      setPayNote({ status });
+    } catch (e) {
+      setPayNote({ error: paymentErrorMessage(e) });
+    } finally {
+      setPaying(false);
+      refreshProfile();
+      loadGames();
+    }
   };
 
   const onSignOut = async () => {
@@ -111,13 +129,28 @@ export default function Lobby() {
                     }}
                   />
                 ) : (
-                  <>
-                    <Button label="اشترِ لعبة بدينار واحد" disabled accessibilityHint="الدفع يُفعَّل قريباً" />
-                    <T size={13} center color={colors.muted}>
-                      الدفع يُفعَّل قريباً. الحين تقدر تجرّب اللعبة المجانية.
-                    </T>
-                  </>
+                  <Button
+                    label="اشترِ لعبة بدينار واحد"
+                    tone="gold"
+                    loading={paying}
+                    accessibilityHint="يفتح صفحة الدفع: كي نت أو بطاقة"
+                    onPress={onBuy}
+                  />
                 )}
+                {profile.games_credit > 0 ? (
+                  <Button label="اشترِ لعبة إضافية (١ د.ك)" tone="white" size="md" loading={paying} onPress={onBuy} />
+                ) : null}
+                {payNote ? (
+                  <View
+                    style={[styles.note, 'error' in payNote || payNote.status !== 'paid' ? styles.noteBad : styles.noteGood]}
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
+                  >
+                    <T size={14} weight="bold" center>
+                      {'error' in payNote ? payNote.error : PAY_MESSAGES[payNote.status]}
+                    </T>
+                  </View>
+                ) : null}
               </>
             )}
           </Card>
@@ -199,5 +232,8 @@ const styles = StyleSheet.create({
   page: { padding: 20 },
   body: { gap: 14, paddingVertical: 18 },
   credit: { backgroundColor: colors.sand, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 2 },
+  note: { borderRadius: radius.sm, padding: 10 },
+  noteGood: { backgroundColor: '#E3F7E8' },
+  noteBad: { backgroundColor: '#FDECEC' },
   gameRow: { gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.line },
 });
