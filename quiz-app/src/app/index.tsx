@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { Boat, Flag } from '@/components/race-art';
 import { SoundToggles } from '@/components/sound-toggles';
 import { Button, FadeIn, Row, Screen, T } from '@/components/ui';
@@ -80,16 +80,28 @@ export default function Home() {
                 tone="white"
                 size="md"
                 style={{ flex: 1 }}
-                onPress={() => router.push({ pathname: '/auth', params: { method: 'email' } })}
+                accessibilityHint="إنشاء حساب جديد بالإيميل"
+                onPress={() => router.push({ pathname: '/auth', params: { method: 'email', mode: 'signup' } })}
               />
               <Button
                 label="برقم الهاتف"
                 tone="white"
                 size="md"
                 style={{ flex: 1 }}
-                onPress={() => router.push({ pathname: '/auth', params: { method: 'phone' } })}
+                accessibilityHint="إنشاء حساب جديد برقم جوال كويتي"
+                onPress={() => router.push({ pathname: '/auth', params: { method: 'phone', mode: 'signup' } })}
               />
             </Row>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="عندك حساب؟ سجّل دخول"
+              onPress={() => router.push({ pathname: '/auth', params: { mode: 'signin' } })}
+              style={styles.link}
+            >
+              <T size={15} center weight="black" color={colors.seaDeep}>
+                عندك حساب؟ سجّل دخول
+              </T>
+            </Pressable>
           </>
         )}
       </FadeIn>
@@ -106,5 +118,6 @@ const styles = StyleSheet.create({
     padding: 18,
     gap: 10,
   },
+  link: { minHeight: 44, justifyContent: 'center' },
   divider: { height: 1, backgroundColor: colors.line, marginVertical: 4 },
 });

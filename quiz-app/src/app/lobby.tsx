@@ -2,12 +2,13 @@ import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { BackIcon } from '@/components/icons';
+import { SoundToggles } from '@/components/sound-toggles';
 import { Button, Card, FadeIn, IconButton, Row, Screen, T } from '@/components/ui';
 import { useGame } from '@/game/game-store';
 import { toArabicDigits } from '@/lib/arabic';
 import { useAuth } from '@/lib/auth';
 import { reportError } from '@/lib/monitoring';
-import { buyGame, PAY_MESSAGES, paymentErrorMessage, type PayStatus } from '@/lib/payments';
+import { buyGame, PAY_MESSAGES, paymentErrorMessage, verifyOrder, type PayStatus } from '@/lib/payments';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, phoneFromLoginEmail } from '@/lib/validate';
 import { colors, radius } from '@/theme';
@@ -24,6 +25,9 @@ export default function Lobby() {
   const [leaving, setLeaving] = useState(false);
   const [paying, setPaying] = useState(false);
   const [payNote, setPayNote] = useState<{ status: PayStatus } | { error: string } | null>(null);
+  // The last order we opened, so a "pending" payment can be re-checked with the server.
+  const [lastOrder, setLastOrder] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const userId = session?.user.id;
 
   const loadGames = useCallback(async () => {
@@ -60,7 +64,8 @@ export default function Lobby() {
     setPaying(true);
     setPayNote(null);
     try {
-      const { status } = await buyGame();
+      const { orderId, status } = await buyGame();
+      setLastOrder(orderId);
       setPayNote({ status });
     } catch (e) {
       reportError(e, 'buy_game');
@@ -71,6 +76,24 @@ export default function Lobby() {
       loadGames();
     }
   };
+
+  /** Ask the server again about a pending payment. Only the server decides if it is paid. */
+  const onCheck = async () => {
+    if (!lastOrder) return;
+    setChecking(true);
+    try {
+      const { status } = await verifyOrder(lastOrder);
+      setPayNote({ status });
+      if (status === 'paid') refreshProfile();
+    } catch (e) {
+      reportError(e, 'verify_payment');
+      setPayNote({ error: paymentErrorMessage(e) });
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const pending = !!payNote && !('error' in payNote) && payNote.status === 'pending' && !!lastOrder;
 
   const onSignOut = async () => {
     setLeaving(true);
@@ -112,10 +135,14 @@ export default function Lobby() {
             ) : (
               <>
                 <Row style={{ justifyContent: 'space-between' }}>
-                  <T size={16} color={colors.inkSoft}>
+                  <T size={16} color={colors.inkSoft} accessible={false} importantForAccessibility="no">
                     رصيد الألعاب
                   </T>
-                  <View style={styles.credit}>
+                  <View
+                    style={styles.credit}
+                    accessible
+                    accessibilityLabel={`الألعاب المتبقية: ${toArabicDigits(profile.games_credit)}`}
+                  >
                     <T weight="black" size={22}>
                       {toArabicDigits(profile.games_credit)} 🎟️
                     </T>
@@ -152,6 +179,9 @@ export default function Lobby() {
                       {'error' in payNote ? payNote.error : PAY_MESSAGES[payNote.status]}
                     </T>
                   </View>
+                ) : null}
+                {pending ? (
+                  <Button label="تحقق" tone="white" size="md" loading={checking} onPress={onCheck} />
                 ) : null}
               </>
             )}
@@ -202,21 +232,31 @@ export default function Lobby() {
           </Card>
         </FadeIn>
 
-        <View style={{ gap: 10, marginTop: 8 }}>
-          {confirmOut ? (
-            <Card style={{ gap: 12 }}>
-              <T weight="black" size={16} center>
-                متأكد تبي تطلع من حسابك؟
-              </T>
-              <Row style={{ gap: 10 }}>
-                <Button label="إلغاء" tone="white" size="md" style={{ flex: 1 }} onPress={() => setConfirmOut(false)} />
-                <Button label="تسجيل الخروج" tone="red" size="md" loading={leaving} style={{ flex: 1 }} onPress={onSignOut} />
-              </Row>
-            </Card>
-          ) : (
-            <Button label="تسجيل الخروج" tone="white" size="md" onPress={() => setConfirmOut(true)} />
-          )}
-        </View>
+        <FadeIn delay={240}>
+          <Card style={{ gap: 12 }}>
+            <T weight="black" size={18} accessibilityRole="header">
+              الإعدادات
+            </T>
+            <SoundToggles />
+            <T size={13} color={colors.muted}>
+              وقت الإجابة (٣٠ / ٦٠ / ٩٠ ثانية) تختارونه عند إعداد الفرق قبل كل لعبة.
+            </T>
+            <View style={styles.divider} />
+            {confirmOut ? (
+              <View style={{ gap: 12 }}>
+                <T weight="black" size={16} center>
+                  متأكد تبي تطلع من حسابك؟
+                </T>
+                <Row style={{ gap: 10 }}>
+                  <Button label="إلغاء" tone="white" size="md" style={{ flex: 1 }} onPress={() => setConfirmOut(false)} />
+                  <Button label="تسجيل الخروج" tone="red" size="md" loading={leaving} style={{ flex: 1 }} onPress={onSignOut} />
+                </Row>
+              </View>
+            ) : (
+              <Button label="تسجيل الخروج" tone="white" size="md" onPress={() => setConfirmOut(true)} />
+            )}
+          </Card>
+        </FadeIn>
       </ScrollView>
     </Screen>
   );
@@ -237,5 +277,6 @@ const styles = StyleSheet.create({
   note: { borderRadius: radius.sm, padding: 10 },
   noteGood: { backgroundColor: '#E3F7E8' },
   noteBad: { backgroundColor: '#FDECEC' },
+  divider: { height: 1, backgroundColor: colors.line },
   gameRow: { gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.line },
 });

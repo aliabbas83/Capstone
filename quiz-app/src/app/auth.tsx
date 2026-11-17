@@ -1,5 +1,5 @@
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { type ComponentRef, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { BackIcon } from '@/components/icons';
 import { Button, Card, FadeIn, haptic, IconButton, Row, Screen, T } from '@/components/ui';
@@ -12,9 +12,11 @@ type Method = 'email' | 'phone';
 type Mode = 'signin' | 'signup';
 
 export default function Auth() {
-  const params = useLocalSearchParams<{ method?: string }>();
+  const params = useLocalSearchParams<{ method?: string; mode?: string }>();
   const { ready, session } = useAuth();
-  const [mode, setMode] = useState<Mode>('signup');
+  const [mode, setMode] = useState<Mode>(params.mode === 'signin' ? 'signin' : 'signup');
+  const passwordRef = useRef<ComponentRef<typeof TextInput>>(null);
+  const confirmRef = useRef<ComponentRef<typeof TextInput>>(null);
   const [method, setMethod] = useState<Method>(params.method === 'phone' ? 'phone' : 'email');
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
@@ -72,11 +74,20 @@ export default function Auth() {
     }
 
     setBusy(true);
-    const { data, error: e } =
-      mode === 'signup'
-        ? await supabase.auth.signUp({ email: loginEmail, password })
-        : await supabase.auth.signInWithPassword({ email: loginEmail, password });
-    setBusy(false);
+    let result;
+    try {
+      result =
+        mode === 'signup'
+          ? await supabase.auth.signUp({ email: loginEmail, password })
+          : await supabase.auth.signInWithPassword({ email: loginEmail, password });
+    } catch (thrown) {
+      // A dropped connection can throw instead of returning an error.
+      haptic('warning');
+      return setError(authErrorMessage(thrown instanceof Error ? thrown : new Error('network')));
+    } finally {
+      setBusy(false);
+    }
+    const { data, error: e } = result;
 
     if (e) {
       haptic('warning');
@@ -96,7 +107,7 @@ export default function Auth() {
     <Screen style={styles.page}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Row style={{ gap: 12 }}>
-          <IconButton label="رجوع" onPress={() => router.back()}>
+          <IconButton label="رجوع" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}>
             <BackIcon />
           </IconButton>
           <T weight="black" size={24} accessibilityRole="header">
@@ -148,6 +159,9 @@ export default function Auth() {
                       autoComplete="email"
                       textContentType={isSignup ? 'emailAddress' : 'username'}
                       inputMode="email"
+                      returnKeyType="next"
+                      submitBehavior="submit"
+                      onSubmitEditing={() => passwordRef.current?.focus()}
                       style={[styles.input, styles.ltr]}
                     />
                   ) : (
@@ -172,6 +186,9 @@ export default function Auth() {
                         textContentType="telephoneNumber"
                         inputMode="tel"
                         maxLength={16}
+                        returnKeyType="next"
+                        submitBehavior="submit"
+                        onSubmitEditing={() => passwordRef.current?.focus()}
                         style={[styles.input, styles.ltr, { flex: 1 }]}
                       />
                     </View>
@@ -179,6 +196,7 @@ export default function Auth() {
 
                   <View>
                     <TextInput
+                      ref={passwordRef}
                       value={password}
                       onChangeText={(t) => {
                         setPassword(t);
@@ -194,7 +212,8 @@ export default function Auth() {
                       textContentType={isSignup ? 'newPassword' : 'password'}
                       maxLength={72}
                       returnKeyType={isSignup ? 'next' : 'done'}
-                      onSubmitEditing={isSignup ? undefined : submit}
+                      submitBehavior={isSignup ? 'submit' : 'blurAndSubmit'}
+                      onSubmitEditing={isSignup ? () => confirmRef.current?.focus() : submit}
                       style={[styles.input, styles.ltr, { paddingRight: 70 }]}
                     />
                     <Pressable
@@ -213,6 +232,7 @@ export default function Auth() {
                   {isSignup ? (
                     <>
                       <TextInput
+                        ref={confirmRef}
                         value={confirm}
                         onChangeText={(t) => {
                           setConfirm(t);
@@ -239,7 +259,11 @@ export default function Auth() {
 
                   {error ? <ErrorText text={error} /> : null}
                   <Button label={isSignup ? 'إنشاء الحساب' : 'دخول'} tone={isSignup ? 'gold' : 'green'} loading={busy} onPress={submit} />
-                  <Pressable accessibilityRole="button" onPress={() => switchMode(isSignup ? 'signin' : 'signup')} hitSlop={8}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => switchMode(isSignup ? 'signin' : 'signup')}
+                    style={styles.link}
+                  >
                     <T size={14} center weight="black" color={colors.seaDeep}>
                       {isSignup ? 'عندك حساب؟ سجّل دخول' : 'ما عندك حساب؟ أنشئ حساباً جديداً'}
                     </T>
@@ -318,7 +342,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardSoft,
   },
   ltr: { textAlign: 'left', writingDirection: 'ltr' },
-  eye: { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
+  eye: { position: 'absolute', right: 6, top: 0, bottom: 0, minWidth: 56, paddingHorizontal: 8, justifyContent: 'center' },
+  link: { minHeight: 44, justifyContent: 'center' },
   phoneRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   prefix: {
     height: 54,
