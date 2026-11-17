@@ -1,26 +1,19 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { MoveKind, Points, TeamIdx } from './engine';
+import { Category, DEMO_CATEGORIES, DEMO_LANE_LENGTH, DEMO_QUESTIONS, REAL_LANE_LENGTH } from './demo-questions';
 import {
-  chooseMove,
-  createRace,
-  markCorrect,
-  markWrong,
-  MoveKind,
-  pickCategory,
-  Points,
-  RaceState,
-  startQuestion,
-  TeamIdx,
-  undoPick,
-} from './engine';
-import {
-  CATEGORIES_PER_TEAM,
-  Category,
-  DEMO_CATEGORIES,
-  DEMO_LANE_LENGTH,
-  DEMO_QUESTIONS,
-  Question,
-  REAL_LANE_LENGTH,
-} from './demo-questions';
+  askErrorScope,
+  CatalogStatus,
+  gameReducer as reducer,
+  GameMode,
+  initialGameState as initial,
+  parseSavedTimer,
+  shouldLoadCatalog,
+  StoreState,
+  TeamDraft,
+  TIMER_KEY,
+} from './game-reducer';
 import { useAuth } from '@/lib/auth';
 import { reportError } from '@/lib/monitoring';
 import {
@@ -33,116 +26,13 @@ import {
   uploadTeamPhoto,
 } from '@/lib/supabase';
 
-export interface TeamDraft {
-  name: string;
-  mascotId: string;
-  /** True once the host picked a mascot by hand, so typing the name no longer replaces it. */
-  mascotLocked: boolean;
-  photoUri: string | null;
-}
-
-export type GameMode = 'demo' | 'real';
-
-interface StoreState {
-  mode: GameMode;
-  teams: [TeamDraft, TeamDraft];
-  timerSeconds: number;
-  picks: [string[], string[]];
-  race: RaceState | null;
-  question: Question | null;
-  /** Server game id (real mode only). */
-  gameId: string | null;
-}
-
-type Action =
-  | { type: 'begin'; mode: GameMode }
-  | { type: 'setTeam'; index: TeamIdx; patch: Partial<TeamDraft> }
-  | { type: 'setTimer'; seconds: number }
-  | { type: 'pick'; categoryId: string }
-  | { type: 'undoPick' }
-  | { type: 'startRace'; gameId: string | null; laneLength: number }
-  | { type: 'ask'; question: Question; isComeback: boolean }
-  | { type: 'correct' }
-  | { type: 'wrong' }
-  | { type: 'choose'; kind: MoveKind }
-  | { type: 'playAgain' }
-  | { type: 'changeTeams' };
-
-const blankTeams = (): [TeamDraft, TeamDraft] => [
-  { name: '', mascotId: 'falcon', mascotLocked: false, photoUri: null },
-  { name: '', mascotId: 'tiger', mascotLocked: false, photoUri: null },
-];
-
-const initial: StoreState = {
-  mode: 'demo',
-  teams: blankTeams(),
-  timerSeconds: 60,
-  picks: [[], []],
-  race: null,
-  question: null,
-  gameId: null,
-};
-
-function reducer(s: StoreState, a: Action): StoreState {
-  switch (a.type) {
-    case 'begin':
-      return { ...initial, mode: a.mode, teams: blankTeams() };
-    case 'setTeam': {
-      const teams = [...s.teams] as [TeamDraft, TeamDraft];
-      teams[a.index] = { ...teams[a.index], ...a.patch };
-      return { ...s, teams };
-    }
-    case 'setTimer':
-      return { ...s, timerSeconds: a.seconds };
-    case 'pick':
-      return { ...s, picks: pickCategory(s.picks, a.categoryId, CATEGORIES_PER_TEAM) };
-    case 'undoPick':
-      return { ...s, picks: undoPick(s.picks) };
-    case 'startRace': {
-      const [a0, a1] = s.teams;
-      const toRace = (t: TeamDraft, i: TeamIdx) => ({
-        name: t.name.trim() || (i === 0 ? 'الفريق الأول' : 'الفريق الثاني'),
-        mascotId: t.mascotId,
-        photoUri: t.photoUri,
-        categories: s.picks[i],
-      });
-      return { ...s, race: createRace([toRace(a0, 0), toRace(a1, 1)], a.laneLength), question: null, gameId: a.gameId };
-    }
-    case 'ask': {
-      if (!s.race) return s;
-      const race = startQuestion(s.race, {
-        categoryId: a.question.categoryId,
-        questionId: a.question.id,
-        points: a.question.points,
-        isComeback: a.isComeback,
-      });
-      return race === s.race ? s : { ...s, race, question: a.question };
-    }
-    case 'correct':
-      return s.race ? { ...s, race: markCorrect(s.race) } : s;
-    case 'wrong': {
-      if (!s.race) return s;
-      const race = markWrong(s.race);
-      return { ...s, race, question: race.phase === 'pick' ? null : s.question };
-    }
-    case 'choose': {
-      if (!s.race) return s;
-      const race = chooseMove(s.race, a.kind);
-      return { ...s, race, question: race.phase === 'choose' ? s.question : null };
-    }
-    case 'playAgain':
-      return { ...s, picks: [[], []], race: null, question: null, gameId: null };
-    case 'changeTeams':
-      return { ...s, teams: blankTeams(), picks: [[], []], race: null, question: null, gameId: null };
-  }
-}
-
+export type { GameMode, TeamDraft } from './game-reducer';
 
 export type AskResult = 'ok' | 'empty' | 'error';
 
 /** Server catalog for real games: categories + how many unseen questions are left. */
 interface Catalog {
-  status: 'idle' | 'loading' | 'error' | 'ready';
+  status: CatalogStatus;
   categories: Category[];
   left: Record<string, number>; // "categoryId:points" → unseen questions left
 }
@@ -171,6 +61,8 @@ interface GameApi {
   ask: (categoryId: string, points: Points, isComeback?: boolean) => Promise<AskResult>;
   asking: boolean;
   askError: string | null;
+  /** Hide the last "ask" error, e.g. when the team picks another category or difficulty. */
+  clearAskError: () => void;
   correct: () => void;
   wrong: () => void;
   choose: (kind: MoveKind) => void;
@@ -186,6 +78,16 @@ const key = (categoryId: string, points: Points) => `${categoryId}:${points}`;
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial);
+
+  // Restore the host's saved timer choice (30 / 60 / 90) once at start.
+  useEffect(() => {
+    AsyncStorage.getItem(TIMER_KEY)
+      .then((raw) => {
+        const seconds = parseSavedTimer(raw);
+        if (seconds !== null) dispatch({ type: 'setTimer', seconds });
+      })
+      .catch(() => {});
+  }, []);
   const { session, refreshProfile } = useAuth();
   const userId = session?.user.id ?? null;
 
@@ -193,13 +95,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
-  const [askError, setAskError] = useState<string | null>(null);
+  const [askErrorState, setAskErrorState] = useState<{ scope: string; message: string } | null>(null);
   // Local photo → uploaded storage path, so "play again" does not upload the same photo twice.
   const uploaded = useRef(new Map<string, string>());
   const finished = useRef(new Set<string>());
 
-  const loadCatalog = useCallback(async () => {
-    setCatalog((c) => ({ ...c, status: 'loading' }));
+  /** Fetches categories + unseen counts. Only sets state after awaiting, so it is safe inside an effect. */
+  const fetchCatalog = useCallback(async () => {
     try {
       const categories = (await fetchCategories()).filter((c) => c.active);
       const left = await remainingQuestions(categories.map((c) => c.id));
@@ -208,6 +110,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setCatalog((c) => ({ ...c, status: 'error' }));
     }
   }, []);
+
+  const loadCatalog = useCallback(async () => {
+    setCatalog((c) => ({ ...c, status: 'loading' }));
+    await fetchCatalog();
+  }, [fetchCatalog]);
+
+  // A real game reached without begin() (e.g. a deep link) would wait forever on 'idle': load now.
+  // 'idle' already shows as loading on screen, and fetchCatalog moves it to 'ready' or 'error'.
+  const autoLoading = useRef(false);
+  useEffect(() => {
+    if (!shouldLoadCatalog(state.mode, catalog.status) || autoLoading.current) return;
+    autoLoading.current = true;
+    fetchCatalog().finally(() => {
+      autoLoading.current = false;
+    });
+  }, [state.mode, catalog.status, fetchCatalog]);
+
+  // An "ask" error belongs to one moment of play; once the turn passes or a question
+  // opens/closes, it is stale and hidden.
+  const errorScope = askErrorScope(state);
+  const askError = askErrorState && askErrorState.scope === errorScope ? askErrorState.message : null;
+  const setAskError = useCallback(
+    (message: string | null) => setAskErrorState(message === null ? null : { scope: errorScope, message }),
+    [errorScope],
+  );
 
   /** Record an unfinished real game as abandoned (fire and forget). */
   const abandon = useCallback(async (s: StoreState) => {
@@ -253,7 +180,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
         if (m === 'real') loadCatalog();
       },
       setTeam: (index, patch) => dispatch({ type: 'setTeam', index, patch }),
-      setTimer: (seconds) => dispatch({ type: 'setTimer', seconds }),
+      setTimer: (seconds) => {
+        dispatch({ type: 'setTimer', seconds });
+        AsyncStorage.setItem(TIMER_KEY, String(seconds)).catch(() => {});
+      },
       pick: (categoryId) => dispatch({ type: 'pick', categoryId }),
       undoPick: () => dispatch({ type: 'undoPick' }),
       starting,
@@ -333,6 +263,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setAsking(false);
         }
       },
+      clearAskError: () => setAskError(null),
       correct: () => dispatch({ type: 'correct' }),
       wrong: () => dispatch({ type: 'wrong' }),
       choose: (kind) => dispatch({ type: 'choose', kind }),
@@ -352,7 +283,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         await abandon(state);
       },
     };
-  }, [state, catalog, starting, startError, asking, askError, userId, loadCatalog, abandon, refreshProfile]);
+  }, [state, catalog, starting, startError, asking, askError, setAskError, userId, loadCatalog, abandon, refreshProfile]);
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
