@@ -80,3 +80,33 @@ export const MusicIcon = ({ size = 20, color = colors.ink }: P) => (
     <Path d="M9 18a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM19 16a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" {...stroke(color)} />
   </Svg>
 );
+
+/** A small "i" in a circle, for first-time tips. */
+export const InfoIcon = ({ size = 20, color = colors.ink }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M12 21a9 9 0 100-18 9 9 0 000 18z" {...stroke(color)} />
+    <Path d="M12 11v5" {...stroke(color)} strokeWidth={3} />
+    <Path d="M12 7.5h.01" {...stroke(color)} strokeWidth={3.5} />
+  </Svg>
+);
+
+/** Padlock, for the secure payment page. */
+export const LockIcon = ({ size = 20, color = colors.ink }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3" {...stroke(color)} />
+  </Svg>
+);
+
+/** Four corners pointing out = "show bigger". */
+export const ExpandIcon = ({ size = 20, color = colors.ink }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" {...stroke(color)} />
+  </Svg>
+);
+
+/** Open book, for "how to play". */
+export const BookIcon = ({ size = 20, color = colors.ink }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5zM12 6.5v13" {...stroke(color)} />
+  </Svg>
+);

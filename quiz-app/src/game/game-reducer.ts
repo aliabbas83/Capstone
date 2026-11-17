@@ -35,6 +35,10 @@ export interface StoreState {
   question: Question | null;
   /** Server game id (real mode only). */
   gameId: string | null;
+  /** The race and question just before the host's last call (correct / wrong / move), for one-step undo. */
+  undo: { race: RaceState; question: Question | null } | null;
+  /** True when a question was reopened by undo: the answer is shown again straight away. */
+  reopened: boolean;
 }
 
 export type Action =
@@ -48,6 +52,7 @@ export type Action =
   | { type: 'correct' }
   | { type: 'wrong' }
   | { type: 'choose'; kind: MoveKind }
+  | { type: 'undo' }
   | { type: 'playAgain' }
   | { type: 'changeTeams' };
 
@@ -56,8 +61,10 @@ const blankTeams = (): [TeamDraft, TeamDraft] => [
   { name: '', mascotId: 'tiger', mascotLocked: false, photoUri: null },
 ];
 
-/** Question timer choices in setup (seconds). */
-export const TIMER_CHOICES = [30, 60, 90] as const;
+/** "No timer": the host reveals the answer whenever the team is ready (the 15 s steal timer stays). */
+export const NO_TIMER = 0;
+/** Question timer choices in setup (seconds, or NO_TIMER). */
+export const TIMER_CHOICES = [30, 60, 90, NO_TIMER] as const;
 /** AsyncStorage key for the host's timer choice. */
 export const TIMER_KEY = 'jawla.timer.v1';
 
@@ -65,7 +72,7 @@ const isTimerChoice = (n: number) => (TIMER_CHOICES as readonly number[]).includ
 
 /** A saved timer value, or null when nothing (valid) was saved. */
 export function parseSavedTimer(raw: string | null): number | null {
-  if (!raw || !/^\d+$/.test(raw)) return null;
+  if (!raw || !/^(0|[1-9]\d*)$/.test(raw)) return null;
   const n = Number(raw);
   return isTimerChoice(n) ? n : null;
 }
@@ -78,7 +85,17 @@ export const initialGameState: StoreState = {
   race: null,
   question: null,
   gameId: null,
+  undo: null,
+  reopened: false,
 };
+
+/** True when the host can take back their last call. The winning move is final (its result is saved at once). */
+export function canUndo(s: StoreState): boolean {
+  return !!s.undo && !!s.race && s.race.phase !== 'finished';
+}
+
+/** Remember the moment before a host call so it can be undone. */
+const remember = (s: StoreState) => ({ undo: s.race ? { race: s.race, question: s.question } : null, reopened: false });
 
 export type CatalogStatus = 'idle' | 'loading' | 'error' | 'ready';
 
@@ -119,7 +136,14 @@ export function gameReducer(s: StoreState, a: Action): StoreState {
         photoUri: t.photoUri,
         categories: s.picks[i],
       });
-      return { ...s, race: createRace([toRace(a0, 0), toRace(a1, 1)], a.laneLength), question: null, gameId: a.gameId };
+      return {
+        ...s,
+        race: createRace([toRace(a0, 0), toRace(a1, 1)], a.laneLength),
+        question: null,
+        gameId: a.gameId,
+        undo: null,
+        reopened: false,
+      };
     }
     case 'ask': {
       if (!s.race) return s;
@@ -129,23 +153,40 @@ export function gameReducer(s: StoreState, a: Action): StoreState {
         points: a.question.points,
         isComeback: a.isComeback,
       });
-      return race === s.race ? s : { ...s, race, question: a.question };
+      return race === s.race ? s : { ...s, race, question: a.question, undo: null, reopened: false };
     }
-    case 'correct':
-      return s.race ? { ...s, race: markCorrect(s.race) } : s;
+    case 'correct': {
+      if (!s.race) return s;
+      const race = markCorrect(s.race);
+      return race === s.race ? s : { ...s, ...remember(s), race };
+    }
     case 'wrong': {
       if (!s.race) return s;
       const race = markWrong(s.race);
-      return { ...s, race, question: race.phase === 'pick' ? null : s.question };
+      return race === s.race ? s : { ...s, ...remember(s), race, question: race.phase === 'pick' ? null : s.question };
     }
     case 'choose': {
       if (!s.race) return s;
       const race = chooseMove(s.race, a.kind);
-      return { ...s, race, question: race.phase === 'choose' ? s.question : null };
+      return race === s.race
+        ? s
+        : { ...s, ...remember(s), race, question: race.phase === 'choose' ? s.question : null };
     }
+    case 'undo':
+      if (!canUndo(s) || !s.undo) return s;
+      return { ...s, race: s.undo.race, question: s.undo.question, undo: null, reopened: true };
     case 'playAgain':
-      return { ...s, picks: [[], []], race: null, question: null, gameId: null };
+      return { ...s, picks: [[], []], race: null, question: null, gameId: null, undo: null, reopened: false };
     case 'changeTeams':
-      return { ...s, teams: blankTeams(), picks: [[], []], race: null, question: null, gameId: null };
+      return {
+        ...s,
+        teams: blankTeams(),
+        picks: [[], []],
+        race: null,
+        question: null,
+        gameId: null,
+        undo: null,
+        reopened: false,
+      };
   }
 }

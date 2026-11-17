@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Animated, Dimensions, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { toArabicDigits } from '@/lib/arabic';
 import { colors, nativeDriver } from '@/theme';
 import { T } from './ui';
 import { useReduceMotion } from '@/lib/motion';
@@ -108,7 +107,7 @@ export function TimerRing({ seconds, total, color, size = 84 }: { seconds: numbe
         />
       </Svg>
       <T weight="black" size={size * 0.32} color={urgent ? colors.redDeep : colors.ink} center>
-        {toArabicDigits(Math.max(0, seconds))}
+        {Math.max(0, seconds)}
       </T>
     </View>
   );

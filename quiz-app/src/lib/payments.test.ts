@@ -146,7 +146,7 @@ describe('rate limit messages', () => {
   it('create-payment limit says wait 10 minutes', async () => {
     mockInvoke.mockResolvedValueOnce({ data: null, error: httpError({ error: 'rate_limited' }, 429) });
     const err = await buyGame().catch((e: unknown) => e);
-    expect(paymentErrorMessage(err)).toMatch(/١٠ دقائق/);
+    expect(paymentErrorMessage(err)).toMatch(/10 دقائق/);
   });
 
   it('verify-payment limit says wait a minute', async () => {
@@ -155,7 +155,7 @@ describe('rate limit messages', () => {
     expect(err).toMatchObject({ code: 'rate_limited' });
     const msg = paymentErrorMessage(err);
     expect(msg).toMatch(/دقيقة/);
-    expect(msg).not.toMatch(/١٠/);
+    expect(msg).not.toMatch(/10/);
   });
 });
 

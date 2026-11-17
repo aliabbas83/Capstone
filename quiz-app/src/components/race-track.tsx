@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { RaceState, TeamIdx } from '@/game/engine';
-import { toArabicDigits } from '@/lib/arabic';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { Boat, FinishLine, Flag } from './race-art';
 import { T } from './ui';
@@ -93,7 +92,7 @@ function Lane({ race, index, height }: { race: RaceState; index: TeamIdx; height
             <View style={[styles.buoy, big && styles.buoyBig]} />
             {big ? (
               <T size={12} weight="black" color="#FFFFFF" style={styles.stepNum}>
-                {toArabicDigits(s)}
+                {s}
               </T>
             ) : null}
             <View style={[styles.buoy, big && styles.buoyBig]} />

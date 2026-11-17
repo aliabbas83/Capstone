@@ -1,11 +1,11 @@
 import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { BackIcon } from '@/components/icons';
+import { BackIcon, CheckIcon, LockIcon } from '@/components/icons';
 import { SoundToggles } from '@/components/sound-toggles';
 import { Button, Card, FadeIn, IconButton, Row, Screen, T } from '@/components/ui';
+import { REAL_LANE_LENGTH } from '@/game/demo-questions';
 import { useGame } from '@/game/game-store';
-import { toArabicDigits } from '@/lib/arabic';
 import { useAuth } from '@/lib/auth';
 import { reportError } from '@/lib/monitoring';
 import { buyGame, PAY_MESSAGES, paymentErrorMessage, verifyOrder, type PayStatus } from '@/lib/payments';
@@ -24,6 +24,7 @@ export default function Lobby() {
   const [confirmOut, setConfirmOut] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [payNote, setPayNote] = useState<{ status: PayStatus } | { error: string } | null>(null);
   // The last order we opened, so a "pending" payment can be re-checked with the server.
   const [lastOrder, setLastOrder] = useState<string | null>(null);
@@ -60,7 +61,14 @@ export default function Lobby() {
     setRefreshing(false);
   };
 
+  /** First a short summary of what they buy and how paying works; the payment page opens only after "ادفع". */
+  const startBuy = () => {
+    setPayNote(null);
+    setReviewing(true);
+  };
+
   const onBuy = async () => {
+    setReviewing(false);
     setPaying(true);
     setPayNote(null);
     try {
@@ -141,10 +149,10 @@ export default function Lobby() {
                   <View
                     style={styles.credit}
                     accessible
-                    accessibilityLabel={`الألعاب المتبقية: ${toArabicDigits(profile.games_credit)}`}
+                    accessibilityLabel={`الألعاب المتبقية: ${profile.games_credit}`}
                   >
                     <T weight="black" size={22}>
-                      {toArabicDigits(profile.games_credit)} 🎟️
+                      {profile.games_credit} 🎟️
                     </T>
                   </View>
                 </Row>
@@ -157,18 +165,20 @@ export default function Lobby() {
                       router.push('/setup/teams');
                     }}
                   />
+                ) : null}
+                {reviewing ? (
+                  <PaySummary onPay={onBuy} onCancel={() => setReviewing(false)} />
+                ) : profile.games_credit > 0 ? (
+                  <Button label="اشترِ لعبة إضافية (1 د.ك)" tone="white" size="md" loading={paying} onPress={startBuy} />
                 ) : (
                   <Button
                     label="اشترِ لعبة بدينار واحد"
                     tone="gold"
                     loading={paying}
-                    accessibilityHint="يفتح صفحة الدفع: كي نت أو بطاقة"
-                    onPress={onBuy}
+                    accessibilityHint="يعرض ملخص الشراء قبل الدفع"
+                    onPress={startBuy}
                   />
                 )}
-                {profile.games_credit > 0 ? (
-                  <Button label="اشترِ لعبة إضافية (١ د.ك)" tone="white" size="md" loading={paying} onPress={onBuy} />
-                ) : null}
                 {payNote ? (
                   <View
                     style={[styles.note, 'error' in payNote || payNote.status !== 'paid' ? styles.noteBad : styles.noteGood]}
@@ -239,7 +249,7 @@ export default function Lobby() {
             </T>
             <SoundToggles />
             <T size={13} color={colors.muted}>
-              وقت الإجابة (٣٠ / ٦٠ / ٩٠ ثانية) تختارونه عند إعداد الفرق قبل كل لعبة.
+              وقت الإجابة (30 / 60 / 90 ثانية، أو بدون وقت) تختارونه عند إعداد الفرق قبل كل لعبة.
             </T>
             <View style={styles.divider} />
             {confirmOut ? (
@@ -262,6 +272,50 @@ export default function Lobby() {
   );
 }
 
+/** What one game gives and how paying works, shown before the payment page opens. Price is set by the server. */
+function PaySummary({ onPay, onCancel }: { onPay: () => void; onCancel: () => void }) {
+  const perks = [
+    `14 فئة تختارون منها 8، وسباق ${REAL_LANE_LENGTH} خطوة`,
+    'أسئلة جديدة ما تتكرر في حسابك',
+    'اللعبة تبقى في رصيدكم لين تبدأونها',
+  ];
+  return (
+    <View style={styles.summary} accessibilityLiveRegion="polite">
+      <Row style={{ justifyContent: 'space-between' }}>
+        <T weight="black" size={17} accessibilityRole="header">
+          لعبة كاملة واحدة
+        </T>
+        <T weight="black" size={17}>
+          1 د.ك
+        </T>
+      </Row>
+      <View style={{ gap: 6 }}>
+        {perks.map((p) => (
+          <Row key={p} style={{ gap: 8 }}>
+            <CheckIcon size={18} color={colors.greenDeep} />
+            <T size={14} style={{ flex: 1 }}>
+              {p}
+            </T>
+          </Row>
+        ))}
+      </View>
+      <View style={styles.divider} />
+      <Row style={{ gap: 8, alignItems: 'flex-start' }}>
+        <View style={{ paddingTop: 2 }}>
+          <LockIcon size={18} color={colors.ink} />
+        </View>
+        <T size={14} style={{ flex: 1 }}>
+          تدفعون بكي نت أو بطاقة في صفحة دفع آمنة من ماي فاتورة، وبعد الدفع ترجعون هنا والرصيد يزيد.
+        </T>
+      </Row>
+      <Row style={{ gap: 10 }}>
+        <Button label="ادفع 1 د.ك" style={{ flex: 1 }} accessibilityHint="يفتح صفحة الدفع الآمنة" onPress={onPay} />
+        <Button label="إلغاء" tone="white" size="md" onPress={onCancel} />
+      </Row>
+    </View>
+  );
+}
+
 function Loading() {
   return (
     <Screen style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -278,5 +332,6 @@ const styles = StyleSheet.create({
   noteGood: { backgroundColor: '#E3F7E8' },
   noteBad: { backgroundColor: '#FDECEC' },
   divider: { height: 1, backgroundColor: colors.line },
+  summary: { gap: 12, backgroundColor: colors.cardSoft, borderRadius: radius.md, borderWidth: 2, borderColor: colors.line, padding: 14 },
   gameRow: { gap: 8, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.line },
 });

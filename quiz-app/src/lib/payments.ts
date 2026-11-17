@@ -58,7 +58,7 @@ export function paymentErrorMessage(e: unknown): string {
   if (code === 'not_configured') return 'الدفع غير مفعّل في الخادم بعد. جرّب لاحقاً.';
   if (code === 'rate_limited' && e instanceof PaymentError && e.fn === 'verify-payment')
     return 'تحققت مرات كثيرة. انتظر دقيقة ثم حاول مرة ثانية.';
-  if (code === 'rate_limited') return 'فتحت صفحات دفع كثيرة. انتظر ١٠ دقائق ثم حاول.';
+  if (code === 'rate_limited') return 'فتحت صفحات دفع كثيرة. انتظر 10 دقائق ثم حاول.';
   if (code === 'gateway_failed') return 'بوابة الدفع ما ردّت. حاول مرة ثانية بعد شوي.';
   if (code === 'unauthorized') return 'انتهت جلستك. سجّل دخول مرة ثانية.';
   if (code === 'not_found' || code === 'bad_order') return 'ما لقينا هذا الطلب في حسابك.';

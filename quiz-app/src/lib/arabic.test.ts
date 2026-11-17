@@ -1,24 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { nameWords, normalizeArabic, toArabicDigits } from './arabic';
-
-describe('toArabicDigits', () => {
-  it('turns numbers into Arabic-Indic digits', () => {
-    expect(toArabicDigits(0)).toBe('٠');
-    expect(toArabicDigits(12)).toBe('١٢');
-    expect(toArabicDigits(1234567890)).toBe('١٢٣٤٥٦٧٨٩٠');
-  });
-  it('accepts strings and keeps non-digits as they are', () => {
-    expect(toArabicDigits('+5 خطوات')).toBe('+٥ خطوات');
-    expect(toArabicDigits('2:30')).toBe('٢:٣٠');
-  });
-  it('keeps the minus sign and decimal point', () => {
-    expect(toArabicDigits(-3)).toBe('-٣');
-    expect(toArabicDigits(1.5)).toBe('١.٥');
-  });
-  it('leaves digits that are already Arabic-Indic alone', () => {
-    expect(toArabicDigits('٤٥')).toBe('٤٥');
-  });
-});
+import { nameWords, normalizeArabic } from './arabic';
 
 describe('normalizeArabic', () => {
   it('removes tashkeel (harakat, shadda, sukun, dagger alef)', () => {

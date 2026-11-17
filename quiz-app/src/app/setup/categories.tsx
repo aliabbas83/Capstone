@@ -6,7 +6,6 @@ import { Button, Card, FadeIn, haptic, IconButton, PopIn, Row, Screen, T } from 
 import { nextPicker } from '@/game/engine';
 import { CATEGORIES_PER_TEAM } from '@/game/demo-questions';
 import { useGame } from '@/game/game-store';
-import { toArabicDigits } from '@/lib/arabic';
 import { colors, radius, ROW } from '@/theme';
 
 export default function Categories() {
@@ -33,7 +32,7 @@ export default function Categories() {
         {done ? (
           <Card style={[styles.banner, { borderColor: colors.gold }]}>
             <T weight="black" size={18} center>
-              جاهزين! ٨ فئات مختلفة للسباق
+              جاهزين! {CATEGORIES_PER_TEAM * 2} فئات مختلفة للسباق
             </T>
           </Card>
         ) : (
@@ -46,7 +45,7 @@ export default function Categories() {
                     دور {name(who)} يختار
                   </T>
                   <T size={14} color={colors.inkSoft}>
-                    الفئة {toArabicDigits(picks[who].length + 1)} من {toArabicDigits(CATEGORIES_PER_TEAM)}
+                    الفئة {picks[who].length + 1} من {CATEGORIES_PER_TEAM}
                   </T>
                 </View>
               </Row>
@@ -105,11 +104,11 @@ export default function Categories() {
                 ]}
               >
                 <View style={[styles.emojiWrap, { backgroundColor: taken ? 'rgba(255,255,255,0.85)' : `${c.color}22` }]}>
-                  <Text style={{ fontSize: 26 }} aria-hidden>
+                  <Text style={{ fontSize: 22 }} aria-hidden>
                     {c.emoji}
                   </Text>
                 </View>
-                <T weight="black" size={16} center color={taken ? colors.onTeam[o] : colors.ink}>
+                <T weight="black" size={14} center numberOfLines={2} color={taken ? colors.onTeam[o] : colors.ink}>
                   {c.name}
                 </T>
                 {empty ? (
@@ -119,7 +118,7 @@ export default function Categories() {
                 ) : null}
                 {taken ? (
                   <View style={styles.ownerBadge}>
-                    <MascotBadge mascotId={teams[o].mascotId} photoUri={teams[o].photoUri} size={26} ring="#fff" />
+                    <MascotBadge mascotId={teams[o].mascotId} photoUri={teams[o].photoUri} size={22} ring="#fff" />
                   </View>
                 ) : null}
               </Pressable>
@@ -162,22 +161,25 @@ export default function Categories() {
 const styles = StyleSheet.create({
   header: { gap: 12, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
   banner: { borderWidth: 3, paddingVertical: 12 },
-  grid: { flexDirection: ROW, flexWrap: 'wrap', padding: 14, gap: 0 },
-  cell: { width: '50%', padding: 6 },
+  // Three across, so all 14 categories fit on one phone screen without scrolling.
+  grid: { flexDirection: ROW, flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 8 },
+  cell: { width: '33.333%', padding: 4 },
   tile: {
     backgroundColor: colors.card,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     borderWidth: 3,
     borderColor: 'transparent',
-    borderBottomWidth: 6,
+    borderBottomWidth: 5,
     borderBottomColor: '#BFD9E6',
-    paddingVertical: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     alignItems: 'center',
-    gap: 6,
-    minHeight: 112,
+    justifyContent: 'center',
+    gap: 4,
+    minHeight: 96,
   },
-  emojiWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  ownerBadge: { position: 'absolute', top: 6, left: 6 },
+  emojiWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  ownerBadge: { position: 'absolute', top: 4, left: 4 },
   footer: { gap: 10, paddingHorizontal: 20, paddingBottom: 12 },
   state: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24 },
   error: { backgroundColor: '#FDECEC', borderRadius: radius.sm, padding: 10, marginHorizontal: 20, marginBottom: 8 },

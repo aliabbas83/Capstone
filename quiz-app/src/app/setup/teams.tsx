@@ -6,12 +6,12 @@ import { BackIcon, ImageIcon } from '@/components/icons';
 import { MascotBadge } from '@/components/mascot-badge';
 import { Button, Card, haptic, IconButton, Row, Screen, T } from '@/components/ui';
 import type { TeamIdx } from '@/game/engine';
+import { NO_TIMER, TIMER_CHOICES } from '@/game/game-reducer';
 import { TeamDraft, useGame } from '@/game/game-store';
 import { MASCOT_BY_ID, MASCOTS, suggestMascot } from '@/game/mascots';
-import { toArabicDigits } from '@/lib/arabic';
 import { colors, fonts, radius, ROW, TEXT_START } from '@/theme';
 
-const TIMERS = [30, 60, 90];
+const timerLabel = (s: number) => (s === NO_TIMER ? 'بدون وقت' : `${s} ثانية`);
 const MAX_NAME = 20;
 
 export default function Teams() {
@@ -46,10 +46,10 @@ export default function Teams() {
 
           <Card style={{ gap: 10 }}>
             <T weight="bold" size={16}>
-              وقت الإجابة
+              وقت الإجابة بالثواني
             </T>
             <Row style={styles.segment} accessibilityRole="radiogroup" accessibilityLabel="وقت الإجابة">
-              {TIMERS.map((s) => {
+              {TIMER_CHOICES.map((s) => {
                 const on = state.timerSeconds === s;
                 return (
                   <Pressable
@@ -57,15 +57,15 @@ export default function Teams() {
                     accessibilityRole="radio"
                     accessibilityState={{ checked: on }}
                     aria-checked={on}
-                    accessibilityLabel={`${s} ثانية`}
+                    accessibilityLabel={timerLabel(s)}
                     onPress={() => {
                       haptic();
                       setTimer(s);
                     }}
                     style={[styles.segBtn, on && styles.segOn]}
                   >
-                    <T weight={on ? 'black' : 'bold'} size={15} center color={on ? colors.ink : colors.inkSoft}>
-                      {toArabicDigits(s)} ثانية
+                    <T weight={on ? 'black' : 'bold'} size={s === NO_TIMER ? 14 : 17} center color={on ? colors.ink : colors.inkSoft}>
+                      {s === NO_TIMER ? 'بدون وقت' : s}
                     </T>
                   </Pressable>
                 );

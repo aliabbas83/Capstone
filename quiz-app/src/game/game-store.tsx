@@ -4,6 +4,7 @@ import { MoveKind, Points, TeamIdx } from './engine';
 import { Category, DEMO_CATEGORIES, DEMO_LANE_LENGTH, DEMO_QUESTIONS, REAL_LANE_LENGTH } from './demo-questions';
 import {
   askErrorScope,
+  canUndo,
   CatalogStatus,
   gameReducer as reducer,
   GameMode,
@@ -67,6 +68,10 @@ interface GameApi {
   correct: () => void;
   wrong: () => void;
   choose: (kind: MoveKind) => void;
+  /** Take back the last صح / خطأ / move (one step). */
+  undo: () => void;
+  /** True while the last call can still be taken back. */
+  canUndo: boolean;
   playAgain: () => void;
   changeTeams: () => void;
   /** Leave the race. A real game that is not finished is recorded as abandoned. */
@@ -80,7 +85,7 @@ const key = (categoryId: string, points: Points) => `${categoryId}:${points}`;
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial);
 
-  // Restore the host's saved timer choice (30 / 60 / 90) once at start.
+  // Restore the host's saved timer choice (30 / 60 / 90 / no timer) once at start.
   useEffect(() => {
     AsyncStorage.getItem(TIMER_KEY)
       .then((raw) => {
@@ -276,6 +281,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       correct: () => dispatch({ type: 'correct' }),
       wrong: () => dispatch({ type: 'wrong' }),
       choose: (kind) => dispatch({ type: 'choose', kind }),
+      undo: () => dispatch({ type: 'undo' }),
+      canUndo: canUndo(state),
       playAgain: () => {
         abandon(state);
         setStartError(null);

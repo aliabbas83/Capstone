@@ -107,12 +107,12 @@ export function gameErrorMessage(e: unknown): string {
   const msg = e instanceof Error ? e.message : typeof e === 'object' && e && 'message' in e ? String(e.message) : '';
   if (/no credit/i.test(msg)) return 'رصيدك من الألعاب خلص. اشترِ لعبة من صفحة حسابك.';
   if (/team names must differ/i.test(msg)) return 'اسما الفريقين لازم يكونون مختلفين.';
-  if (/team name/i.test(msg)) return 'اسم الفريق لازم يكون من حرف إلى ٢٠ حرف.';
-  if (/categories/i.test(msg)) return 'اختاروا ٨ فئات مختلفة.';
+  if (/team name/i.test(msg)) return 'اسم الفريق لازم يكون من حرف إلى 20 حرف.';
+  if (/categories/i.test(msg)) return 'اختاروا 8 فئات مختلفة.';
   if (/photo_too_big/i.test(msg)) return 'الصورة كبيرة. اختاروا صورة أصغر أو شخصية بدلها.';
   if (/photo_limit/i.test(msg)) return 'رفعتوا صور كثيرة اليوم. اختاروا شخصية بدل الصورة، أو جرّبوا بكرة.';
   if (/photo|storage|mime/i.test(msg)) return 'ما قدرنا نرفع صورة الفريق. جرّبوا مرة ثانية أو اختاروا شخصية.';
-  if (/game expired/i.test(msg)) return 'مرّ وقت طويل على هذه اللعبة (أكثر من ٦ ساعات). ابدأوا لعبة جديدة.';
+  if (/game expired/i.test(msg)) return 'مرّ وقت طويل على هذه اللعبة (أكثر من 6 ساعات). ابدأوا لعبة جديدة.';
   if (/question limit/i.test(msg)) return 'وصلت اللعبة للحد الأقصى من الأسئلة. ابدأوا لعبة جديدة.';
   if (/not active|not found/i.test(msg)) return 'هذه اللعبة انتهت. ابدأوا لعبة جديدة.';
   if (/not signed in|jwt/i.test(msg)) return 'انتهت جلستك. سجّل دخول مرة ثانية.';

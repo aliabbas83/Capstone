@@ -1,10 +1,3 @@
-const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
-
-/** 12 → "١٢" */
-export function toArabicDigits(n: number | string): string {
-  return String(n).replace(/\d/g, (d) => ARABIC_DIGITS[Number(d)]);
-}
-
 /**
  * Loose Arabic normalisation for matching words:
  * removes tashkeel and tatweel, unifies alef / yaa / taa marbuta forms.

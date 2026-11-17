@@ -1,16 +1,16 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 import { other, Points, RaceState, STEAL_SECONDS, TeamIdx } from '@/game/engine';
 import type { Category, Question, QuestionImage } from '@/game/demo-questions';
-import { toArabicDigits } from '@/lib/arabic';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { play } from '@/lib/sound';
 import { Confetti, TimerRing } from './effects';
 import { SoundToggles } from './sound-toggles';
-import { ArrowDownIcon, ArrowUpIcon, CheckIcon, CrossIcon } from './icons';
+import { ArrowDownIcon, ArrowUpIcon, BookIcon, CheckIcon, CrossIcon, ExpandIcon } from './icons';
 import { MascotBadge } from './mascot-badge';
 import { Flag } from './race-art';
+import { FirstTimeTip } from './tip';
 import { Button, Card, haptic, PopIn, Row, T } from './ui';
 import { useReduceMotion } from '@/lib/motion';
 
@@ -35,23 +35,29 @@ export function QuestionOverlay({
   category,
   timerSeconds,
   paused = false,
+  startRevealed = false,
   onCorrect,
   onWrong,
 }: {
   race: RaceState;
   question: Question;
   category: Category | undefined;
+  /** Question time in seconds; 0 = no timer (the steal still has 15 s). */
   timerSeconds: number;
   /** True while the pause menu is open: the countdown stops. */
   paused?: boolean;
+  /** The host undid their call: show the answer again straight away. */
+  startRevealed?: boolean;
   onCorrect: () => void;
-  onWrong: () => void;
+  /** `revealed` says whether the answer was on screen, so an undo can bring the card back the same way. */
+  onWrong: (revealed: boolean) => void;
 }) {
   const p = race.pending!;
   const stealing = race.phase === 'steal';
   const total = stealing ? STEAL_SECONDS : timerSeconds;
+  const timed = total > 0;
   const [seconds, setSeconds] = useState(total);
-  const [revealed, setRevealed] = useState(false);
+  const [revealed, setRevealed] = useState(startRevealed);
   const flip = useState(() => new Animated.Value(0))[0];
   const still = useReduceMotion();
   const answering = p.answering;
@@ -64,21 +70,21 @@ export function QuestionOverlay({
   }, [flip, still]);
 
   useEffect(() => {
-    if (revealed || paused || seconds <= 0) return;
+    if (!timed || revealed || paused || seconds <= 0) return;
     const id = setTimeout(() => {
       setSeconds((s) => s - 1);
       if (seconds - 1 > 0 && seconds - 1 <= 5) play('tick'); // last five seconds
       if (seconds - 1 === 0) haptic('warning');
     }, 1000);
     return () => clearTimeout(id);
-  }, [seconds, revealed, paused]);
+  }, [timed, seconds, revealed, paused]);
 
-  const timeUp = seconds <= 0 && !revealed;
+  const timeUp = timed && seconds <= 0 && !revealed;
   const rivalName = teamName(race, other(answering));
   // Wrong or out of time in the first round: hand over to the other team without showing the answer.
   const toSteal = () => {
     haptic('warning');
-    onWrong();
+    onWrong(false);
   };
 
   return (
@@ -104,7 +110,7 @@ export function QuestionOverlay({
             </Row>
             <View style={[styles.pointsBadge, p.isComeback && { backgroundColor: colors.ink }]}>
               <T weight="black" size={16} color={p.isComeback ? colors.gold : colors.ink} center>
-                {p.isComeback ? 'سؤال الإنقاذ ' : ''}+{toArabicDigits(p.points)}
+                {p.isComeback ? 'سؤال الإنقاذ ' : ''}+{p.points} خطوات
               </T>
             </View>
           </Row>
@@ -122,9 +128,11 @@ export function QuestionOverlay({
                   </T>
                 ) : null}
               </View>
-              <TimerRing seconds={seconds} total={total} color={color} size={64} />
+              {timed ? <TimerRing seconds={seconds} total={total} color={color} size={64} /> : null}
             </Row>
           </View>
+
+          <FirstTimeTip id="steal" active={stealing} />
 
           <T weight="black" size={24} center style={{ marginVertical: 8 }}>
             {question.q}
@@ -161,7 +169,7 @@ export function QuestionOverlay({
                 }} />
                 <Button label="خطأ" tone="red" icon={<CrossIcon />} style={{ flex: 1 }} onPress={() => {
                   haptic('warning');
-                  onWrong();
+                  onWrong(true);
                 }} />
               </Row>
             </View>
@@ -199,23 +207,55 @@ export function QuestionOverlay({
  * The picture of a picture question (a flag or a country's outline).
  * Shows a spinner while it loads, and a retry button if it fails, so the host is never stuck.
  */
+function PictureImage({ image, attempt, onLoad, onError }: { image: QuestionImage; attempt: number; onLoad?: () => void; onError?: () => void }) {
+  if ('source' in image)
+    return <Image key={attempt} source={image.source} style={styles.pictureImg} resizeMode="contain" onLoad={onLoad} onError={onError} />;
+  if (image.kind === 'svg') return <SvgUri key={attempt} uri={image.uri} width="100%" height="100%" onLoad={onLoad} onError={onError} />;
+  return <Image key={attempt} source={{ uri: image.uri }} style={styles.pictureImg} resizeMode="contain" onLoad={onLoad} onError={onError} />;
+}
+
 function QuestionPicture({ image }: { image: QuestionImage }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
+  const [big, setBig] = useState(false);
   const onLoad = () => setStatus('ready');
   const onError = () => setStatus('error');
 
   return (
-    <View style={styles.picture} accessible accessibilityRole="image" accessibilityLabel="صورة السؤال">
+    <View style={styles.picture}>
       {status !== 'error' ? (
-        'source' in image ? (
-          <Image key={attempt} source={image.source} style={styles.pictureImg} resizeMode="contain" onLoad={onLoad} onError={onError} />
-        ) : image.kind === 'svg' ? (
-          <SvgUri key={attempt} uri={image.uri} width="100%" height="100%" onLoad={onLoad} onError={onError} />
-        ) : (
-          <Image key={attempt} source={{ uri: image.uri }} style={styles.pictureImg} resizeMode="contain" onLoad={onLoad} onError={onError} />
-        )
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          disabled={status !== 'ready'}
+          accessibilityRole="imagebutton"
+          accessibilityLabel="صورة السؤال، اضغط لتكبيرها"
+          onPress={() => setBig(true)}
+        >
+          <View style={styles.pictureInner}>
+            <PictureImage image={image} attempt={attempt} onLoad={onLoad} onError={onError} />
+          </View>
+          {status === 'ready' ? (
+            <View style={styles.expandHint} pointerEvents="none">
+              <ExpandIcon size={18} color={colors.ink} />
+            </View>
+          ) : null}
+        </Pressable>
       ) : null}
+      <Modal visible={big} transparent animationType="fade" onRequestClose={() => setBig(false)} statusBarTranslucent>
+        <Pressable
+          style={styles.bigBackdrop}
+          accessibilityRole="button"
+          accessibilityLabel="صورة السؤال مكبّرة، اضغط للرجوع"
+          onPress={() => setBig(false)}
+        >
+          <View style={styles.bigFrame}>
+            <PictureImage image={image} attempt={attempt} />
+          </View>
+          <T size={15} weight="bold" color="#FFFFFF" center>
+            اضغط في أي مكان للرجوع
+          </T>
+        </Pressable>
+      </Modal>
       {status === 'loading' ? (
         <View style={styles.pictureOverlay}>
           <ActivityIndicator color={colors.ink} accessibilityLabel="جاري تحميل الصورة" />
@@ -259,22 +299,24 @@ export function ChooseOverlay({ race, onChoose }: { race: RaceState; onChoose: (
               {praise} {teamName(race, scorer)}
             </T>
             <T size={16} center color={colors.inkSoft}>
-              ربحتوا {toArabicDigits(p.points)} خطوات. وش تبون؟
+              ربحتوا {p.points} خطوات. وش تبون؟
             </T>
           </View>
+
+          <FirstTimeTip id="choose" />
 
           <ChoiceCard
             tone={scorer}
             icon={<ArrowUpIcon color={colors.onTeam[scorer]} />}
             title="تقدّم بقاربنا"
-            sub={`+${toArabicDigits(p.points)} خطوات لـ ${teamName(race, scorer)}`}
+            sub={`+${p.points} خطوات لـ ${teamName(race, scorer)}`}
             onPress={() => onChoose('forward')}
           />
           <ChoiceCard
             tone={rival}
             icon={<ArrowDownIcon color={colors.onTeam[rival]} />}
             title={`ارجع قارب ${teamName(race, rival)}`}
-            sub={rivalAtStart ? 'قاربهم عند البداية، ما يرجع أكثر' : `−${toArabicDigits(p.points)} خطوات لهم`}
+            sub={rivalAtStart ? 'قاربهم عند البداية، ما يرجع أكثر' : `−${p.points} خطوات لهم`}
             disabled={rivalAtStart}
             onPress={() => onChoose('push')}
           />
@@ -376,7 +418,7 @@ export function WinnerOverlay({
                   {teamName(race, i)}
                 </T>
                 <T weight="black" size={22} center color={colors.teamDeep[i]}>
-                  {toArabicDigits(race.teams[i].position)}/{toArabicDigits(race.laneLength)}
+                  {race.teams[i].position}/{race.laneLength}
                 </T>
               </View>
             ))}
@@ -398,12 +440,19 @@ const LEAVE_LABELS: Record<LeaveAction, string> = {
   teams: 'غيّر الفرق',
   end: 'إنهاء اللعبة',
 };
+/** The confirm button names what will happen, so a quick tap is never a guess. */
+const CONFIRM_LABELS: Record<LeaveAction, string> = {
+  again: 'إي، العب من جديد',
+  teams: 'إي، غيّر الفرق',
+  end: 'إي، أنهِ اللعبة',
+};
 
 export function PauseMenu({
   onResume,
   onPlayAgain,
   onChangeTeams,
   onEnd,
+  onHowTo,
   real = false,
   ending = false,
 }: {
@@ -411,6 +460,8 @@ export function PauseMenu({
   onPlayAgain: () => void;
   onChangeTeams: () => void;
   onEnd: () => void;
+  /** Opens the short "how to play" sheet. */
+  onHowTo?: () => void;
   /** Real (paid) game: leaving loses this game and a new one uses another credit. */
   real?: boolean;
   /** True while the unfinished game is being saved before leaving. */
@@ -439,7 +490,7 @@ export function PauseMenu({
               </T>
               <Row style={{ gap: 10 }}>
                 <Button
-                  label="إي، أكّد"
+                  label={CONFIRM_LABELS[confirm]}
                   tone="red"
                   size="md"
                   loading={ending}
@@ -454,6 +505,9 @@ export function PauseMenu({
               <Button label={LEAVE_LABELS.again} tone="white" onPress={() => setConfirm('again')} />
               <Button label={LEAVE_LABELS.teams} tone="white" onPress={() => setConfirm('teams')} />
               <Button label={LEAVE_LABELS.end} tone="white" onPress={() => setConfirm('end')} />
+              {onHowTo ? (
+                <Button label="طريقة اللعب" tone="white" size="md" icon={<BookIcon />} onPress={onHowTo} />
+              ) : null}
             </>
           )}
         </Card>
@@ -493,7 +547,6 @@ export function PickPanel({
   const turn = race.turn;
   const team = race.teams[turn];
   const ids = [...race.teams[0].categories, ...race.teams[1].categories];
-  const ownerOf = (id: string): TeamIdx => (race.teams[0].categories.includes(id) ? 0 : 1);
   const byId = Object.fromEntries(categories.map((c) => [c.id, c]));
   const levels: { points: Points; label: string }[] = [
     { points: 2, label: 'سهل' },
@@ -534,7 +587,6 @@ export function PickPanel({
         <View style={styles.chips}>
           {ids.map((id) => {
             const c = byId[id];
-            const o = ownerOf(id);
             const empty = !hasAny(id);
             return (
               <Pressable
@@ -549,7 +601,7 @@ export function PickPanel({
                 }}
                 style={({ pressed }) => [
                   styles.chip,
-                  { borderColor: colors.team[o], opacity: empty ? 0.4 : 1 },
+                  empty && { opacity: 0.4 },
                   pressed && { transform: [{ scale: 0.94 }] },
                 ]}
               >
@@ -573,7 +625,7 @@ export function PickPanel({
                   key={lv.points}
                   size="md"
                   tone={turn === 0 ? 'team0' : 'team1'}
-                  label={left === 0 ? `${lv.label}: خلصت` : `${lv.label} +${toArabicDigits(lv.points)}`}
+                  label={left === 0 ? `${lv.label}: خلصت` : `${lv.label} +${lv.points}`}
                   disabled={left === 0 || busy}
                   style={{ flex: 1 }}
                   onPress={() => onAsk(cat, lv.points, false)}
@@ -583,7 +635,7 @@ export function PickPanel({
           </Row>
           {canComeback ? (
             <Button
-              label={remaining(cat, 5) === 0 ? 'سؤال الإنقاذ: خلصت في هذه الفئة' : 'سؤال الإنقاذ +٥ (مرة وحدة)'}
+              label={remaining(cat, 5) === 0 ? 'سؤال الإنقاذ: خلصت في هذه الفئة' : 'سؤال الإنقاذ +5 (مرة وحدة)'}
               disabled={remaining(cat, 5) === 0 || busy}
               onPress={() => onAsk(cat, 5, true)}
             />
@@ -597,10 +649,11 @@ export function PickPanel({
         </T>
       ) : null}
       {canComeback && !cat ? (
-        <T size={13} center color={colors.ink}>
-          ⭐ عندكم سؤال الإنقاذ بـ٥ نقاط — اختاروا فئة لاستخدامه
+        <T size={13} center weight="bold" color={colors.ink}>
+          عندكم سؤال الإنقاذ +5 — اختاروا فئة لاستخدامه
         </T>
       ) : null}
+      <FirstTimeTip id="comeback" active={canComeback} />
     </View>
   );
 }
@@ -615,13 +668,26 @@ const styles = StyleSheet.create({
   pointsBadge: { backgroundColor: colors.gold, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 2 },
   answerer: { borderRadius: radius.lg, padding: 10 },
   picture: {
-    height: 180,
+    height: 250,
     borderRadius: radius.lg,
     backgroundColor: '#EEF7FB',
-    padding: 10,
     overflow: 'hidden',
   },
+  pictureInner: { flex: 1, padding: 10 },
   pictureImg: { width: '100%', height: '100%' },
+  expandHint: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bigBackdrop: { flex: 1, backgroundColor: 'rgba(6, 24, 40, 0.94)', justifyContent: 'center', padding: 16, gap: 16 },
+  bigFrame: { width: '100%', aspectRatio: 1, backgroundColor: '#EEF7FB', borderRadius: radius.lg, padding: 12 },
   pictureOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 12 },
   answerBox: {
     backgroundColor: '#E3F9EA',
@@ -652,7 +718,8 @@ const styles = StyleSheet.create({
     flexDirection: ROW,
     alignItems: 'center',
     gap: 6,
-    borderWidth: 2.5,
+    borderWidth: 2,
+    borderColor: '#BFD9E6',
     borderRadius: radius.pill,
     paddingHorizontal: 12,
     height: 44,

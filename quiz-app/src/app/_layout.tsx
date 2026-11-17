@@ -30,6 +30,7 @@ function RootLayout() {
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, animation: 'slide_from_left', contentStyle: { backgroundColor: colors.sea } }}>
           <Stack.Screen name="race" options={{ gestureEnabled: false, animation: 'fade' }} />
+          <Stack.Screen name="how-to-play" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         </Stack>
       </GameProvider>
     </AuthProvider>

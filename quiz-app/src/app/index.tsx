@@ -1,17 +1,22 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Animated, Easing, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { BookIcon, CheckIcon } from '@/components/icons';
 import { Boat, Flag } from '@/components/race-art';
 import { SoundToggles } from '@/components/sound-toggles';
-import { Button, FadeIn, Row, Screen, T } from '@/components/ui';
+import { Button, FadeIn, PopIn, Row, Screen, T } from '@/components/ui';
+import { REAL_LANE_LENGTH } from '@/game/demo-questions';
 import { useGame } from '@/game/game-store';
 import { useAuth } from '@/lib/auth';
-import { colors, nativeDriver, radius } from '@/theme';
+import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { useReduceMotion } from '@/lib/motion';
 
 export default function Home() {
   const { begin } = useGame();
   const { session } = useAuth();
+  // Arriving here right after the free demo ended: tell them what the full game adds.
+  const { after } = useLocalSearchParams<{ after?: string }>();
+  const afterDemo = after === 'demo';
   const bob = useState(() => new Animated.Value(0))[0];
   const still = useReduceMotion();
   useEffect(() => {
@@ -33,15 +38,32 @@ export default function Home() {
         <T weight="black" size={76} center color={colors.ink} style={{ lineHeight: 100 }} accessibilityRole="header">
           جولة
         </T>
-        <T size={18} center color={colors.inkSoft}>
+        <T size={18} center color={colors.ink}>
           سباق الأسئلة بين الفرق — جاوب صح وجدّف لخط النهاية!
         </T>
       </FadeIn>
 
-      <View style={{ marginTop: 14 }}>
+      {/* Right after a demo the space goes to the "what you get" card instead. */}
+      {afterDemo ? null : (
+      <View style={{ marginTop: 14, gap: 10, alignItems: 'center' }}>
         <SoundToggles compact />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="طريقة اللعب"
+          onPress={() => router.push('/how-to-play')}
+          style={({ pressed }) => [styles.howTo, pressed && { transform: [{ scale: 0.96 }] }]}
+        >
+          <BookIcon size={18} />
+          <T weight="black" size={14}>
+            طريقة اللعب
+          </T>
+        </Pressable>
       </View>
+      )}
 
+      {afterDemo ? (
+        <DemoDoneCard signedIn={!!session} />
+      ) : (
       <View style={styles.scene} accessible accessibilityLabel="قاربان يتسابقان نحو العلم">
         <Row style={{ gap: 40, alignItems: 'flex-end' }}>
           <Animated.View style={{ transform: [{ translateY }] }}>
@@ -53,6 +75,7 @@ export default function Home() {
           </Animated.View>
         </Row>
       </View>
+      )}
 
       <FadeIn delay={150} style={styles.panel}>
         <Button
@@ -112,11 +135,39 @@ export default function Home() {
         onPress={() => Linking.openURL('https://opentdb.com').catch(() => {})}
         style={styles.credit}
       >
-        <T size={12} center color={colors.muted}>
+        <T size={12} center color={colors.ink}>
           بعض الأسئلة مترجمة من Open Trivia DB · CC BY-SA 4.0
         </T>
       </Pressable>
     </Screen>
+  );
+}
+
+/** After the free demo: what the paid game adds, once, on the way back home (not on the winner screen). */
+function DemoDoneCard({ signedIn }: { signedIn: boolean }) {
+  const perks = ['مئات الأسئلة في 14 فئة', `سباق ${REAL_LANE_LENGTH} خطوة بدل 10`, 'أسئلة جديدة ما تتكرر في حسابك'];
+  return (
+    <View style={styles.scene}>
+      <PopIn style={styles.demoDone}>
+        <T weight="black" size={20} accessibilityRole="header">
+          عجبتكم التجربة؟
+        </T>
+        <View style={{ gap: 6 }}>
+          {perks.map((p) => (
+            <Row key={p} style={{ gap: 8 }}>
+              <CheckIcon size={18} color={colors.greenDeep} />
+              <T size={15} weight="bold">
+                {p}
+              </T>
+            </Row>
+          ))}
+        </View>
+        <T size={15} color={colors.ink}>
+          اللعبة الكاملة بدينار واحد.
+        </T>
+        {signedIn ? <Button label="اشترِ لعبة كاملة" size="md" onPress={() => router.push('/lobby')} /> : null}
+      </PopIn>
+    </View>
   );
 }
 
@@ -131,5 +182,15 @@ const styles = StyleSheet.create({
   },
   link: { minHeight: 44, justifyContent: 'center' },
   credit: { minHeight: 44, justifyContent: 'center', marginTop: 4 },
+  howTo: {
+    flexDirection: ROW,
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+  },
+  demoDone: { alignSelf: 'stretch', backgroundColor: colors.sand, borderRadius: radius.xl, padding: 16, gap: 10 },
   divider: { height: 1, backgroundColor: colors.line, marginVertical: 4 },
 });

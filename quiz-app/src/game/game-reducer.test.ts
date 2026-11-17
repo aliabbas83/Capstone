@@ -4,8 +4,10 @@
 import { describe, expect, it } from '@jest/globals';
 import {
   askErrorScope,
+  canUndo,
   gameReducer,
   initialGameState,
+  NO_TIMER,
   parseSavedTimer,
   shouldLoadCatalog,
   StoreState,
@@ -133,8 +135,9 @@ describe('ask error', () => {
 });
 
 describe('timer setting', () => {
-  it('offers 30 / 60 / 90 seconds, 60 by default', () => {
-    expect(TIMER_CHOICES).toEqual([30, 60, 90]);
+  it('offers 30 / 60 / 90 seconds or no timer, 60 by default', () => {
+    expect(TIMER_CHOICES).toEqual([30, 60, 90, NO_TIMER]);
+    expect(NO_TIMER).toBe(0);
     expect(initialGameState.timerSeconds).toBe(60);
   });
 
@@ -142,12 +145,17 @@ describe('timer setting', () => {
     ['30', 30],
     ['90', 90],
     ['60', 60],
+    ['0', 0],
   ])('reads a saved %s back as %i', (raw, value) => {
     expect(parseSavedTimer(raw)).toBe(value);
   });
 
-  it.each([null, '', '45', '0', 'abc', '-30', '30.5'])('ignores a bad saved value %p', (raw) => {
+  it.each([null, '', '45', '00', 'abc', '-30', '30.5'])('ignores a bad saved value %p', (raw) => {
     expect(parseSavedTimer(raw)).toBeNull();
+  });
+
+  it('can be set to no timer', () => {
+    expect(gameReducer(initialGameState, { type: 'setTimer', seconds: NO_TIMER }).timerSeconds).toBe(0);
   });
 
   it('ignores a timer that is not one of the choices', () => {
@@ -177,5 +185,89 @@ describe('question in the store', () => {
     const again = gameReducer(s, { type: 'ask', question: q(2), isComeback: false });
     expect(again).toBe(s);
     expect(again.question).toBeNull();
+  });
+});
+
+describe('undo the last call (host tapped the wrong button)', () => {
+  it('undoes "correct": the question is open again, answer already shown', () => {
+    const open = midGame();
+    const s = gameReducer(open, { type: 'correct' });
+    expect(s.race?.phase).toBe('choose');
+    expect(canUndo(s)).toBe(true);
+    const back = gameReducer(s, { type: 'undo' });
+    expect(back.race).toEqual(open.race);
+    expect(back.question).toEqual(open.question);
+    expect(back.reopened).toBe(true);
+    expect(canUndo(back)).toBe(false);
+  });
+
+  it('undoes "wrong" in the first round: back from the steal to the same team', () => {
+    const open = midGame();
+    const s = gameReducer(open, { type: 'wrong' });
+    expect(s.race?.phase).toBe('steal');
+    const back = gameReducer(s, { type: 'undo' });
+    expect(back.race).toEqual(open.race);
+  });
+
+  it('undoes a wrong steal: the question comes back and the turn does not pass', () => {
+    const steal = gameReducer(midGame(), { type: 'wrong' });
+    const s = gameReducer(steal, { type: 'wrong' });
+    expect(s.race?.phase).toBe('pick');
+    expect(s.question).toBeNull();
+    const back = gameReducer(s, { type: 'undo' });
+    expect(back.race).toEqual(steal.race);
+    expect(back.question).toEqual(steal.question);
+  });
+
+  it('undoes a move or push: boats go back and the team chooses again', () => {
+    const choosing = gameReducer(midGame(), { type: 'correct' });
+    const s = gameReducer(choosing, { type: 'choose', kind: 'push' });
+    expect(s.race?.phase).toBe('pick');
+    const back = gameReducer(s, { type: 'undo' });
+    expect(back.race).toEqual(choosing.race);
+    expect(back.question).toEqual(choosing.question);
+  });
+
+  it('only one step back', () => {
+    let s = gameReducer(midGame(), { type: 'correct' });
+    s = gameReducer(s, { type: 'choose', kind: 'forward' });
+    s = gameReducer(s, { type: 'undo' });
+    expect(s.race?.phase).toBe('choose');
+    expect(gameReducer(s, { type: 'undo' })).toBe(s);
+  });
+
+  it('nothing to undo before any call, or after a new question opens', () => {
+    const open = midGame();
+    expect(gameReducer(open, { type: 'undo' })).toBe(open);
+    let s = gameReducer(open, { type: 'wrong' });
+    s = gameReducer(s, { type: 'wrong' });
+    s = gameReducer(s, { type: 'ask', question: q(2), isComeback: false });
+    expect(canUndo(s)).toBe(false);
+    expect(s.reopened).toBe(false);
+  });
+
+  it('the winning move cannot be undone (the result is saved straight away)', () => {
+    let s = gameReducer(initialGameState, { type: 'begin', mode: 'demo' });
+    s = gameReducer(s, { type: 'startRace', gameId: null, laneLength: DEMO_LANE_LENGTH });
+    for (const p of [4, 4, 4] as const) {
+      const pts = DEMO_QUESTIONS.filter((x) => x.points === p && !s.race!.usedQuestionIds.includes(x.id))[0];
+      s = gameReducer(s, { type: 'ask', question: pts, isComeback: false });
+      s = gameReducer(s, { type: 'correct' });
+      s = gameReducer(s, { type: 'choose', kind: 'forward' });
+      if (s.race?.phase === 'finished') break;
+      // the other team answers wrong twice so the turn comes back
+      const other = DEMO_QUESTIONS.filter((x) => x.points === 2 && !s.race!.usedQuestionIds.includes(x.id))[0];
+      s = gameReducer(s, { type: 'ask', question: other, isComeback: false });
+      s = gameReducer(s, { type: 'wrong' });
+      s = gameReducer(s, { type: 'wrong' });
+    }
+    expect(s.race?.phase).toBe('finished');
+    expect(canUndo(s)).toBe(false);
+    expect(gameReducer(s, { type: 'undo' })).toBe(s);
+  });
+
+  it('a new race or play again clears the undo', () => {
+    const s = gameReducer(gameReducer(midGame(), { type: 'correct' }), { type: 'playAgain' });
+    expect(canUndo(s)).toBe(false);
   });
 });
