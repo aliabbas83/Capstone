@@ -6,6 +6,7 @@ import {
   chatJson,
   cleanItems,
   decodeOpenTdb,
+  fitsCategory,
   generate,
   opentdbFor,
   parseJsonObject,
@@ -90,6 +91,29 @@ Deno.test('pick: Open Trivia DB first, no repeated answer, at most want', () => 
   const c = (answer: string, source: 'opentdb' | 'ai'): Candidate => ({ category_id: 'geo', points: 2, question: `سؤال ${answer}؟`, answer, source });
   const out = pick([c('ليما', 'ai'), c('الأسد', 'ai'), c('ليما', 'opentdb'), c('أسد', 'ai'), c('كندا', 'ai')], 3);
   assertEquals(out.map((x) => `${x.answer}/${x.source}`), ['ليما/opentdb', 'الأسد/ai', 'كندا/ai']);
+});
+
+Deno.test('fitsCategory / pick: no capital-city questions in geography (capitals has its own category)', () => {
+  assertEquals(fitsCategory('geo', 'What is the capital of Laos?'), false);
+  assertEquals(fitsCategory('geo', 'ما عاصمة قبرص؟'), false);
+  assertEquals(fitsCategory('geo', 'ما عاصمه قبرص؟'), false);
+  assertEquals(fitsCategory('geo', 'ما أكبر جزيرة في كندا؟'), true);
+  assertEquals(fitsCategory('capitals', 'ما عاصمة قبرص؟'), true);
+  const c = (category_id: string, question: string, answer: string): Candidate => ({ category_id, points: 3, question, answer, source: 'ai' });
+  const out = pick([c('geo', 'ما عاصمة لاوس؟', 'فينتيان'), c('geo', 'ما أكبر جزيرة في كندا؟', 'بافن'), c('capitals', 'ما عاصمة قبرص؟', 'نيقوسيا')], 5);
+  assertEquals(out.map((x) => x.answer), ['بافن', 'نيقوسيا']);
+});
+
+Deno.test('generate tells the AI the category rule', async () => {
+  Deno.env.set('OPENROUTER_API_KEY', 'test-key-not-real');
+  const f = fakeFetch(llm({ items: [] }));
+  try {
+    await generate({ category: cats[0], points: 5, want: 1 }, 2, []);
+    // deno-lint-ignore no-explicit-any
+    assert((f.bodies[0] as any).messages[0].content.includes('capital'));
+  } finally {
+    f.restore();
+  }
 });
 
 Deno.test('chatJson: needs the key; errors are generic', async () => {

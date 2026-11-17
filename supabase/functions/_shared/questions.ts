@@ -33,6 +33,21 @@ export const OPENTDB_CATEGORY: Record<string, number> = {
 };
 const OPENTDB_DIFFICULTY: Partial<Record<Points, string>> = { 2: 'easy', 3: 'medium', 4: 'hard' };
 
+/** Extra per-category rules: told to the AI, and enforced in code by fitsCategory. */
+const CATEGORY_RULE: Record<string, string> = {
+  geo: 'Do not ask for the capital city of any country, state or region (the quiz has a separate capitals category).',
+};
+const CATEGORY_EXCLUDE: Record<string, RegExp> = {
+  geo: /\bcapital\b|عاصم[ةه]/i,
+};
+
+/** False when a question (English or Arabic) breaks its category's rule, e.g. a capital-city question in geography. */
+export function fitsCategory(categoryId: string, question: string): boolean {
+  return !CATEGORY_EXCLUDE[categoryId]?.test(question);
+}
+
+const ruleFor = (slot: Slot) => (CATEGORY_RULE[slot.category.id] ? `\nCategory rule: ${CATEGORY_RULE[slot.category.id]}` : '');
+
 const LEVEL: Record<Points, string> = {
   2: 'easy: most family members (including children 10+) would know it',
   3: 'medium: a typical adult would know it',
@@ -164,7 +179,7 @@ export async function chatJson(system: string, user: string, temperature: number
 export async function translate(slot: Slot, items: TriviaItem[]): Promise<Candidate[]> {
   if (!items.length) return [];
   const system = `You adapt English trivia questions into Arabic for a family quiz.
-${STYLE}
+${STYLE}${ruleFor(slot)}
 Drop (keep:false) any question that only works with the answer options shown, is about Western pop culture few Gulf families would know, breaks the rules above, or whose answer you are not sure is correct.
 Reply with JSON only: {"items":[{"i":<index>,"keep":true|false,"question":"<Arabic>","answer":"<Arabic>"}]}`;
   const user = `Category: ${slot.category.name} (${slot.category.id}). Difficulty: ${LEVEL[slot.points]}.
@@ -181,7 +196,7 @@ ${JSON.stringify(items.map((t, i) => ({ i, question: t.question, answer: t.answe
 export async function generate(slot: Slot, count: number, avoid: string[]): Promise<Candidate[]> {
   if (count <= 0) return [];
   const system = `You write original quiz questions in Arabic for a family team quiz.
-${STYLE}
+${STYLE}${ruleFor(slot)}
 Each question must have a different answer, and none of the answers may be in the "avoid" list (not even spelled differently). Mix topics inside the category.
 Reply with JSON only: {"items":[{"question":"<Arabic>","answer":"<Arabic>"}]}`;
   const user = `Category: ${slot.category.name} (${slot.category.id}). Difficulty: ${LEVEL[slot.points]}.
@@ -195,7 +210,7 @@ Avoid these answers: ${JSON.stringify(avoid.slice(0, 400))}`;
 export async function verify(slot: Slot, cands: Candidate[]): Promise<Candidate[]> {
   if (!cands.length) return [];
   const system = `You are a strict fact-checker for an Arabic family quiz.
-${STYLE}
+${STYLE}${ruleFor(slot)}
 For each item decide ok:true only if ALL hold: the answer is correct and the only reasonable answer; the question is clear without options; the Arabic is correct; it fits the category and the difficulty; it follows every rule above. If in any doubt, ok:false.
 Reply with JSON only: {"items":[{"i":<index>,"ok":true|false}]}`;
   const user = `Category: ${slot.category.name} (${slot.category.id}). Difficulty: ${LEVEL[slot.points]}.
@@ -208,10 +223,10 @@ ${JSON.stringify(cands.map((c, i) => ({ i, question: c.question, answer: c.answe
   return cands.filter((_, i) => ok.has(i));
 }
 
-/** Up to `want` checked questions for the slot, Open Trivia DB ones first, no repeated answer inside the batch. */
+/** Up to `want` checked questions for the slot, Open Trivia DB ones first, no repeated answer inside the batch, category rules applied. */
 export function pick(cands: Candidate[], want: number): Candidate[] {
   const seen = new Set<string>();
-  const sorted = [...cands].sort((a, b) => (a.source === b.source ? 0 : a.source === 'opentdb' ? -1 : 1));
+  const sorted = cands.filter((c) => fitsCategory(c.category_id, c.question)).sort((a, b) => (a.source === b.source ? 0 : a.source === 'opentdb' ? -1 : 1));
   const out: Candidate[] = [];
   for (const c of sorted) {
     const k = c.answer.replace(/[ً-ْـ«»"'.,،؛:!?؟()\s]/g, '').replace(/^ال/, '').toLowerCase();

@@ -12,6 +12,7 @@ import {
   type Candidate,
   type Category,
   fetchOpenTdb,
+  fitsCategory,
   generate,
   openTdbToken,
   opentdbFor,
@@ -75,7 +76,7 @@ Deno.serve(async (req) => {
       ? await db.rpc('known_refs', { p_refs: items.map((t) => t.ref) })
       : { data: [] };
     const skip = new Set<string>((known as string[] | null) ?? []);
-    trivia.set(i, items.filter((t) => !skip.has(t.ref)));
+    trivia.set(i, items.filter((t) => !skip.has(t.ref) && fitsCategory(slot.category.id, t.question)));
   }
 
   // Translate + write in parallel per slot, then check, then pick.
