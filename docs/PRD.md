@@ -47,7 +47,7 @@ Friends and families want a fun Arabic quiz game they can play together on one p
 Bright cartoon, daytime sea: turquoise water with moving waves, buoys marking each step, colourful rowing boats with the team image on the sail, flags that rise and wave, flip-in question cards, splash and cheer sounds, a horn at the finish, confetti for the winner. Arabic first, right-to-left, Cairo font, big touch targets.
 
 ## Data (Supabase)
-profiles, categories, questions, demo questions, games, game teams, used questions per account, orders (payments). Team photos in a private Storage bucket. RLS on every table.
+Tables: profiles (games credit), categories, questions (the real bank, read only through the server), games (the two teams' names, mascots and photos are stored on the game), seen_questions (used questions per account), orders (payments). Demo questions are bundled in the app, so the free demo works without an account. Team photos in a private Storage bucket. RLS on every table.
 
 ## Out of scope (first version)
 Online multiplayer on several phones, more than 2 teams, Apple/Google in-app purchase, an admin web panel, English UI.

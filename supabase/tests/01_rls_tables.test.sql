@@ -38,8 +38,8 @@ select is(
     where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relrowsecurity),
   0, 'RLS is enabled on every table in the public schema');
 select is(
-  (select count(*)::int from pg_policies where schemaname = 'public' and tablename = 'questions'),
-  0, 'questions has no policies (no direct reads by design)');
+  (select string_agg(permissive || ':' || qual, ',') from pg_policies where schemaname = 'public' and tablename = 'questions'),
+  'RESTRICTIVE:false', 'questions has only the restrictive deny-all policy (no direct reads by design)');
 
 -- ───────── anon (not signed in) ─────────
 set local role anon;

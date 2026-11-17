@@ -13,13 +13,13 @@ Date: 2026-11-17. Method: OWASP review (owasp-security skill) of `supabase/migra
 | 3 | Low | The payment return link accepted any `exp://` address (open redirect through our trusted Supabase link). | **Fixed**: only `jawla://payment`, Expo Go on a private network / `exp.direct` tunnel, and localhost web dev are accepted. `create-payment` redeployed. |
 | 4 | Low | The "5 pending orders per 10 minutes" limit could be passed with many requests at the same moment. | **Fixed**: per-user lock in `create_order`. |
 | 5 | Low | The webhook does not check MyFatoorah's signature. Fake webhooks still cannot add credit (every payment is re-checked with MyFatoorah), but they can waste API calls. | **Fixed in code** (see Follow-ups): signature checked when `MYFATOORAH_WEBHOOK_SECRET` is set. |
-| 6 | Low | Leaked-password protection (HaveIBeenPwned) is off (advisor WARN). | Open: dashboard → Authentication → enable "Prevent use of leaked passwords" (needs the Pro plan). |
+| 6 | Low | Leaked-password protection (HaveIBeenPwned) is off (advisor WARN). | Open: the Supabase org is on the free plan and this switch needs Pro. Until then the server's own rule applies (8+ characters with letters and digits). If the plan is upgraded: dashboard → Authentication → enable "Prevent use of leaked passwords". |
 | 7 | Low | No email/SMS verification, so someone could register another person's number first. | Accepted in the PRD (no SMS step in v1). |
 | 8 | Low | Team-photo bucket has a 2 MB limit per file but no limit per account. | **Fixed** (see Follow-ups): max 40 uploads per account per 24 hours. |
 | 9 | Info | `npm audit`: 3 moderate in `minimatch` inside `@expo/fingerprint` (build tool, not shipped in the app). | No action. |
 | 10 | Info | The device reports the winner (`finish_game`). | Accepted: it only affects the player's own history; no leaderboard. |
 | 11 | Info | `.env.example` named the payment secret `MYFATOORAH_API_TOKEN`; the code reads `MYFATOORAH_API_KEY`. | **Fixed** in `.env.example`. |
-| 12 | Info | Advisor: `questions` has RLS on with no policies. | By design: nobody reads the table directly; questions come out one at a time through `draw_question`. Comment added on the table. |
+| 12 | Info | Advisor: `questions` has RLS on with no policies. | **Fixed** (`20261120120000_questions_no_direct_access.sql`): an explicit restrictive deny-all policy says out loud what was already true. Nobody reads the table directly; questions come out one at a time through `draw_question`. Advisor note cleared. |
 
 ## Live checks (with the public app key, not signed in)
 
@@ -64,3 +64,11 @@ Checked, no change needed:
 - **Input validation.** Order ids must be UUIDs, payment and invoice ids must be digits, and return links must match the allow-list (#3). Amounts never come from the app.
 
 **User to-do for #5:** in the MyFatoorah portal (Integration Settings → Webhook), turn on the webhook with the URL `https://mqpzimmvnnzcoyfuqnbe.supabase.co/functions/v1/payment-webhook`, enable the secret key, then add it yourself with `supabase secrets set MYFATOORAH_WEBHOOK_SECRET=...` (never in chat or git). After that, make one sandbox payment and check the function logs for "bad or missing signature". If you see that warning, the field format did not match. Payments still go through, because the app and the return page also confirm with MyFatoorah.
+
+## Final pass (2026-11-17)
+
+- Real question bank loaded (400 questions, not in git); the 180 public samples are switched off (`is_sample`, `active = false`).
+- Server-side game test (rolled back): payment adds exactly one credit and a repeat confirmation adds none; a start with no credit is refused; 100 draws were all different and none were samples; the 101st draw is refused.
+- `questions` now has an explicit deny-all policy (#12). Security advisor: only #6 is left (needs the Pro plan).
+- The other Supabase project in the account has no custom secrets, so no payment key is left there.
+- Sentry has no open issues. "Prevent Storing of IP Addresses" still has to be switched on in Sentry (see Monitoring).
