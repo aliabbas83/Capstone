@@ -6,7 +6,11 @@ import { supabase } from './supabase';
 export type PayStatus = 'paid' | 'pending' | 'failed' | 'cancelled';
 
 export class PaymentError extends Error {
-  constructor(public code: string) {
+  /** `fn` is the edge function that failed, so messages can fit the action. */
+  constructor(
+    public code: string,
+    public fn?: string,
+  ) {
     super(code);
   }
 }
@@ -17,13 +21,15 @@ async function call<T>(name: string, body: Record<string, unknown>): Promise<T> 
     let code = /fetch|network/i.test(error.message) ? 'network' : 'unknown';
     const ctx = (error as { context?: unknown }).context;
     if (ctx instanceof Response) {
+      // A 401 without our own error code (e.g. "Invalid JWT" from the gateway) = expired session.
+      if (ctx.status === 401) code = 'unauthorized';
       try {
         code = ((await ctx.json()) as { error?: string }).error ?? code;
       } catch {
         // keep the code we have
       }
     }
-    throw new PaymentError(code);
+    throw new PaymentError(code, name);
   }
   return data as T;
 }
@@ -50,6 +56,8 @@ export function verifyOrder(orderId: string) {
 export function paymentErrorMessage(e: unknown): string {
   const code = e instanceof PaymentError ? e.code : '';
   if (code === 'not_configured') return 'الدفع غير مفعّل في الخادم بعد. جرّب لاحقاً.';
+  if (code === 'rate_limited' && e instanceof PaymentError && e.fn === 'verify-payment')
+    return 'تحققت مرات كثيرة. انتظر دقيقة ثم حاول مرة ثانية.';
   if (code === 'rate_limited') return 'فتحت صفحات دفع كثيرة. انتظر ١٠ دقائق ثم حاول.';
   if (code === 'gateway_failed') return 'بوابة الدفع ما ردّت. حاول مرة ثانية بعد شوي.';
   if (code === 'unauthorized') return 'انتهت جلستك. سجّل دخول مرة ثانية.';

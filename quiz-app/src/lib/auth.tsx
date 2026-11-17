@@ -106,6 +106,7 @@ export function authErrorMessage(e: AuthError | Error | null | undefined): strin
   if (code === 'email_address_invalid') return 'هذا الإيميل غير مقبول. جرّب إيميلاً آخر.';
   if (code === 'signup_disabled') return 'إنشاء الحسابات متوقف حالياً.';
   if (code === 'over_request_rate_limit' || status === 429) return 'محاولات كثيرة. انتظر قليلاً ثم حاول مرة ثانية.';
-  if (/network|fetch/i.test(e.message)) return 'لا يوجد اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.';
+  // supabase-js reports a failed request as AuthRetryableFetchError, often with status 0.
+  if (status === 0 || e.name === 'AuthRetryableFetchError' || /network|fetch/i.test(e.message)) return 'لا يوجد اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.';
   return 'صار خطأ غير متوقع. حاول مرة ثانية.';
 }

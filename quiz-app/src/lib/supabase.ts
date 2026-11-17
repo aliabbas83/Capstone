@@ -87,6 +87,8 @@ export async function uploadTeamPhoto(userId: string, uri: string): Promise<stri
   const name = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const path = `${userId}/${name}.${kind}`;
   const { error } = await supabase.storage.from('team-photos').upload(path, body, { contentType, upsert: false });
+  // Storage allows 40 photo uploads per account per day; past that the insert policy says no.
+  if (error && /row-level security/i.test(error.message)) throw new Error('photo_limit');
   if (error) throw error;
   return path;
 }
@@ -99,6 +101,7 @@ export function gameErrorMessage(e: unknown): string {
   if (/team name/i.test(msg)) return 'اسم الفريق لازم يكون من حرف إلى ٢٠ حرف.';
   if (/categories/i.test(msg)) return 'اختاروا ٨ فئات مختلفة.';
   if (/photo_too_big/i.test(msg)) return 'الصورة كبيرة. اختاروا صورة أصغر أو شخصية بدلها.';
+  if (/photo_limit/i.test(msg)) return 'رفعتوا صور كثيرة اليوم. اختاروا شخصية بدل الصورة، أو جرّبوا بكرة.';
   if (/photo|storage|mime/i.test(msg)) return 'ما قدرنا نرفع صورة الفريق. جرّبوا مرة ثانية أو اختاروا شخصية.';
   if (/game expired/i.test(msg)) return 'مرّ وقت طويل على هذه اللعبة (أكثر من ٦ ساعات). ابدأوا لعبة جديدة.';
   if (/question limit/i.test(msg)) return 'وصلت اللعبة للحد الأقصى من الأسئلة. ابدأوا لعبة جديدة.';
