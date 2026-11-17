@@ -8,3 +8,10 @@ verify_jwt = false
 
 [functions.payment-webhook]
 verify_jwt = false
+
+# Live settings (checked 2026-11-17): these two check the user token inside the code.
+[functions.create-payment]
+verify_jwt = false
+
+[functions.verify-payment]
+verify_jwt = false
