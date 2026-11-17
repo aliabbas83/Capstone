@@ -43,7 +43,7 @@ Date: 2026-11-17. Method: OWASP review (owasp-security skill) of `supabase/migra
 
 `@sentry/react-native` is set up in `quiz-app/src/lib/monitoring.ts`. It reports app crashes and failed server calls (start game, draw question, buy game, verify payment). It is off until `EXPO_PUBLIC_SENTRY_DSN` is set in `quiz-app/.env.local`. Privacy: no emails, phone numbers, IP addresses or screenshots are sent, only an anonymous account id. In Expo Go only JavaScript errors are reported (native crash reports need a development build).
 
-Connected 2026-11-17: Sentry org `jawla-3q` (EU region), project `jawla-app` (React Native). The DSN is only in the untracked `quiz-app/.env.local`. Test event JAWLA-APP-1 arrived with the email and phone in the message shown as `[hidden]`, and no user email or IP address. Sentry still guessed a city from the connection, so in Sentry → Settings → Projects → jawla-app → Security & Privacy, turn on **Prevent Storing of IP Addresses** (that also stops the city guess).
+Connected 2026-11-17: Sentry org `jawla-3q` (EU region), project `jawla-app` (React Native). The DSN is only in the untracked `quiz-app/.env.local`. Test event JAWLA-APP-1 arrived with the email and phone in the message shown as `[hidden]`, and no user email or IP address. Sentry still guessed a city from the connection, so **Prevent Storing of IP Addresses** was turned on (Settings → Projects → jawla-app → Security & Privacy, 2026-11-17), which also stops the city guess.
 
 ## Follow-ups (2026-11-17)
 
@@ -71,4 +71,4 @@ Checked, no change needed:
 - Server-side game test (rolled back): payment adds exactly one credit and a repeat confirmation adds none; a start with no credit is refused; 100 draws were all different and none were samples; the 101st draw is refused.
 - `questions` now has an explicit deny-all policy (#12). Security advisor: only #6 is left (needs the Pro plan).
 - The other Supabase project in the account has no custom secrets, so no payment key is left there.
-- Sentry has no open issues. "Prevent Storing of IP Addresses" still has to be switched on in Sentry (see Monitoring).
+- Sentry has no open issues. "Prevent Storing of IP Addresses" is on.
