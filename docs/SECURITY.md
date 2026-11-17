@@ -72,3 +72,4 @@ Checked, no change needed:
 - `questions` now has an explicit deny-all policy (#12). Security advisor: only #6 is left (needs the Pro plan).
 - The other Supabase project in the account has no custom secrets, so no payment key is left there.
 - Sentry has no open issues. "Prevent Storing of IP Addresses" is on.
+- Webhook secret: `MYFATOORAH_WEBHOOK_SECRET` is set in Supabase (by the user, 2026-11-17). Live check: a fake payment event with no signature and one with a wrong signature both get 401 `invalid_signature`. A real signed event is checked by the next sandbox payment: the function logs must not show "bad or missing signature".
