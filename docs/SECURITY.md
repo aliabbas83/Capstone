@@ -12,10 +12,10 @@ Date: 2026-11-17. Method: OWASP review (owasp-security skill) of `supabase/migra
 | 2 | Medium | The GitHub repo is public, and the sample question bank (with answers) is in `20261115120100_m3_seed_bank.sql`. | **Fixed going forward**: the real bank lives in git-ignored CSV files in `supabase/questions/` and is loaded with `supabase/scripts/questions-to-sql.mjs` (see the README there). The 180 public questions are flagged `is_sample` and are switched off with `--retire-samples` once the real bank is loaded. They stay in git history, so they must never be reused as real questions. |
 | 3 | Low | The payment return link accepted any `exp://` address (open redirect through our trusted Supabase link). | **Fixed**: only `jawla://payment`, Expo Go on a private network / `exp.direct` tunnel, and localhost web dev are accepted. `create-payment` redeployed. |
 | 4 | Low | The "5 pending orders per 10 minutes" limit could be passed with many requests at the same moment. | **Fixed**: per-user lock in `create_order`. |
-| 5 | Low | The webhook does not check MyFatoorah's signature. Fake webhooks still cannot add credit (every payment is re-checked with MyFatoorah), but they can waste API calls. | Open: add the signature check once the webhook is registered in the MyFatoorah portal and `MYFATOORAH_WEBHOOK_SECRET` is set. |
+| 5 | Low | The webhook does not check MyFatoorah's signature. Fake webhooks still cannot add credit (every payment is re-checked with MyFatoorah), but they can waste API calls. | **Fixed in code** (see Follow-ups): signature checked when `MYFATOORAH_WEBHOOK_SECRET` is set. |
 | 6 | Low | Leaked-password protection (HaveIBeenPwned) is off (advisor WARN). | Open: dashboard → Authentication → enable "Prevent use of leaked passwords" (needs the Pro plan). |
 | 7 | Low | No email/SMS verification, so someone could register another person's number first. | Accepted in the PRD (no SMS step in v1). |
-| 8 | Low | Team-photo bucket has a 2 MB limit per file but no limit per account. | Open, low risk (own folder only, images only). |
+| 8 | Low | Team-photo bucket has a 2 MB limit per file but no limit per account. | **Fixed** (see Follow-ups): max 40 uploads per account per 24 hours. |
 | 9 | Info | `npm audit`: 3 moderate in `minimatch` inside `@expo/fingerprint` (build tool, not shipped in the app). | No action. |
 | 10 | Info | The device reports the winner (`finish_game`). | Accepted: it only affects the player's own history; no leaderboard. |
 | 11 | Info | `.env.example` named the payment secret `MYFATOORAH_API_TOKEN`; the code reads `MYFATOORAH_API_KEY`. | **Fixed** in `.env.example`. |
@@ -42,3 +42,23 @@ Date: 2026-11-17. Method: OWASP review (owasp-security skill) of `supabase/migra
 ## Monitoring (Sentry)
 
 `@sentry/react-native` is set up in `quiz-app/src/lib/monitoring.ts`. It reports app crashes and failed server calls (start game, draw question, buy game, verify payment). It is off until `EXPO_PUBLIC_SENTRY_DSN` is set in `quiz-app/.env.local`. Privacy: no emails, phone numbers, IP addresses or screenshots are sent, only an anonymous account id. In Expo Go only JavaScript errors are reported (native crash reports need a development build).
+
+## Follow-ups (2026-11-17)
+
+Second pass over the open Medium/Low items, plus fresh Supabase advisors (security + performance).
+
+| # | What changed | Where |
+|---|--------------|-------|
+| 5 | **Webhook signature check.** When the secret `MYFATOORAH_WEBHOOK_SECRET` is set, `payment-webhook` rejects payment events with a missing or wrong `MyFatoorah-Signature` header (401). The signature is HMAC-SHA256 (base64) over the event's `Key=Value,...` string, as in the MyFatoorah docs ([signature](https://docs.myfatoorah.com/docs/webhook-signature), [v1 fields](https://docs.myfatoorah.com/docs/transaction-data-model), [v2 fields](https://docs.myfatoorah.com/docs/webhook-v2-payment-status-data-model)). Both webhook v1 and v2 are supported. Compared in constant time. A signed webhook is still only a hint: every payment is re-checked with MyFatoorah before any credit. Body limited to 64 KB; bad JSON gets 400. If the secret is not set, the old behaviour stays and a warning is logged. | `supabase/functions/_shared/webhook-signature.ts`, `supabase/functions/payment-webhook/index.ts` |
+| 6 | Still open. Leaked-password protection is a dashboard switch (Pro plan). | Dashboard |
+| 8 | **Team-photo cap.** Upload policy now allows at most 40 new photos per account in any 24 hours (a game uses at most 2). | `20261119120000_security_followups.sql` |
+| new | **Throttle on `verify-payment`.** Each call asks MyFatoorah, so one account is limited to 20 checks per minute (429 `rate_limited`). Best effort, in memory per function instance; the hard limits stay in the database (`create_order`). | `_shared/myfatoorah.ts`, `verify-payment/index.ts` |
+
+Checked, no change needed:
+
+- **Advisors.** Security: only #6 and #12 above. Performance: "unused index `seen_questions_question_idx`". It is kept on purpose, because it is the index behind the foreign key to `questions` (used when a question is deleted). All functions already have `search_path = ''`, and all policies already use `(select auth.uid())`.
+- **CORS** is `*` on the two app-facing functions. They use a bearer token, not cookies, so another website cannot act as the user. The webhook and the return page are server-to-server or browser redirects and never needed CORS.
+- **Error messages.** Functions return short codes (`gateway_failed`, `order_failed`, ...). The details only go to the function logs.
+- **Input validation.** Order ids must be UUIDs, payment and invoice ids must be digits, and return links must match the allow-list (#3). Amounts never come from the app.
+
+**User to-do for #5:** in the MyFatoorah portal (Integration Settings → Webhook), turn on the webhook with the URL `https://mqpzimmvnnzcoyfuqnbe.supabase.co/functions/v1/payment-webhook`, enable the secret key, then add it yourself with `supabase secrets set MYFATOORAH_WEBHOOK_SECRET=...` (never in chat or git). After that, make one sandbox payment and check the function logs for "bad or missing signature". If you see that warning, the field format did not match. Payments still go through, because the app and the return page also confirm with MyFatoorah.

@@ -105,4 +105,20 @@ export async function settleOrder(
   return 'pending';
 }
 
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Small in-memory rate limit (per function instance, best effort). Stops one account from
+ * hammering MyFatoorah through our functions. Limits that must always hold live in the database.
+ */
+const hits = new Map<string, number[]>();
+export function tooMany(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+  recent.push(now);
+  hits.set(key, recent);
+  if (hits.size > 5000) {
+    for (const [k, v] of hits) if (v.every((t) => now - t >= windowMs)) hits.delete(k);
+  }
+  return recent.length > max;
+}
+
+export const UUID_RE =/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -1,5 +1,5 @@
 // The app asks "did my order go through?". We ask MyFatoorah directly and credit once if paid.
-import { admin, cors, json, type Order, settleOrder, userFrom, UUID_RE } from '../_shared/myfatoorah.ts';
+import { admin, cors, json, type Order, settleOrder, tooMany, userFrom, UUID_RE } from '../_shared/myfatoorah.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -8,6 +8,7 @@ Deno.serve(async (req) => {
   const db = admin();
   const user = await userFrom(req, db);
   if (!user) return json({ error: 'unauthorized' }, 401);
+  if (tooMany(`verify:${user.id}`, 20, 60_000)) return json({ error: 'rate_limited' }, 429);
 
   const body = await req.json().catch(() => ({}));
   const orderId = typeof body?.orderId === 'string' ? body.orderId : '';
