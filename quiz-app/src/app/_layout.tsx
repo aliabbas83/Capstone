@@ -13,12 +13,13 @@ startSound();
 export default withMonitoring(RootLayout);
 
 function RootLayout() {
-  const [loaded] = useFonts({ Cairo_500Medium, Cairo_700Bold, Cairo_900Black });
+  const [loaded, fontError] = useFonts({ Cairo_500Medium, Cairo_700Bold, Cairo_900Black });
 
-  if (!loaded) {
+  // If the font fails to load, carry on with the system font instead of spinning forever.
+  if (!loaded && !fontError) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.sea, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#fff" size="large" />
+        <ActivityIndicator color="#fff" size="large" accessibilityLabel="جاري التحميل" />
       </View>
     );
   }
