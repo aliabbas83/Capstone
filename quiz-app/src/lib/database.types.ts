@@ -54,11 +54,12 @@ export type Database = {
           category_id: string;
           created_at: string;
           id: number;
+          is_sample: boolean;
           points: number;
           question: string;
         };
-        Insert: { active?: boolean; answer: string; category_id: string; created_at?: string; id?: never; points: number; question: string };
-        Update: { active?: boolean; answer?: string; category_id?: string; created_at?: string; id?: never; points?: number; question?: string };
+        Insert: { active?: boolean; answer: string; category_id: string; created_at?: string; id?: never; is_sample?: boolean; points: number; question: string };
+        Update: { active?: boolean; answer?: string; category_id?: string; created_at?: string; id?: never; is_sample?: boolean; points?: number; question?: string };
         Relationships: [];
       };
       seen_questions: {

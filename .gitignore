@@ -14,3 +14,8 @@ web-build/
 *.log
 .DS_Store
 supabase/.temp/
+
+# Real question bank (answers!) — never commit. Only the README and template are tracked.
+supabase/questions/*
+!supabase/questions/README.md
+!supabase/questions/template.csv
