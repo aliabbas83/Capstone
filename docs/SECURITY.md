@@ -43,6 +43,8 @@ Date: 2026-11-17. Method: OWASP review (owasp-security skill) of `supabase/migra
 
 `@sentry/react-native` is set up in `quiz-app/src/lib/monitoring.ts`. It reports app crashes and failed server calls (start game, draw question, buy game, verify payment). It is off until `EXPO_PUBLIC_SENTRY_DSN` is set in `quiz-app/.env.local`. Privacy: no emails, phone numbers, IP addresses or screenshots are sent, only an anonymous account id. In Expo Go only JavaScript errors are reported (native crash reports need a development build).
 
+Connected 2026-11-17: Sentry org `jawla-3q` (EU region), project `jawla-app` (React Native). The DSN is only in the untracked `quiz-app/.env.local`. Test event JAWLA-APP-1 arrived with the email and phone in the message shown as `[hidden]`, and no user email or IP address. Sentry still guessed a city from the connection, so in Sentry → Settings → Projects → jawla-app → Security & Privacy, turn on **Prevent Storing of IP Addresses** (that also stops the city guess).
+
 ## Follow-ups (2026-11-17)
 
 Second pass over the open Medium/Low items, plus fresh Supabase advisors (security + performance).
