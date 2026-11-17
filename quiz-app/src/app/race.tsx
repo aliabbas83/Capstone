@@ -1,6 +1,6 @@
 import { Redirect, router } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import { PauseIcon } from '@/components/icons';
 import { MascotBadge } from '@/components/mascot-badge';
 import { ChooseOverlay, PauseMenu, PickPanel, QuestionOverlay, WinnerOverlay } from '@/components/race-overlays';
@@ -10,13 +10,34 @@ import type { RaceState, TeamIdx } from '@/game/engine';
 import { useGame } from '@/game/game-store';
 import { useRaceSounds } from '@/game/use-race-sounds';
 import { toArabicDigits } from '@/lib/arabic';
+import { useReduceMotion } from '@/lib/motion';
 import { colors, radius } from '@/theme';
 
 export default function Race() {
   const game = useGame();
   const { race, question, timerSeconds } = game.state;
   const [paused, setPaused] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const still = useReduceMotion();
   useRaceSounds(race);
+
+  // Android back button opens / closes the pause menu instead of leaving the race.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setPaused((p) => !p);
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Let the last boat move and the lane flag rise before the winner card covers the sea.
+  const finished = race?.phase === 'finished';
+  const [winnerFor, setWinnerFor] = useState<typeof race>(null);
+  useEffect(() => {
+    if (!finished) return;
+    const id = setTimeout(() => setWinnerFor(race), still ? 300 : 1400);
+    return () => clearTimeout(id);
+  }, [finished, race, still]);
 
   if (!race) return <Redirect href="/" />;
 
@@ -31,10 +52,16 @@ export default function Race() {
     router.replace('/setup/teams');
   };
   const end = async () => {
+    if (ending) return;
     const home = game.state.mode === 'real' ? '/lobby' : '/';
-    await game.endGame(); // saves an unfinished real game first, so the lobby shows it right
-    setPaused(false);
-    router.replace(home);
+    setEnding(true);
+    try {
+      await game.endGame(); // saves an unfinished real game first, so the lobby shows it right
+    } finally {
+      setEnding(false);
+      setPaused(false);
+      router.replace(home);
+    }
   };
 
   const asking = (race.phase === 'question' || race.phase === 'steal') && question;
@@ -63,6 +90,7 @@ export default function Race() {
           onAsk={(c, p, comeback) => {
             game.ask(c, p, comeback);
           }}
+          onMenu={() => setPaused(true)}
         />
       ) : (
         <View style={styles.panelSpacer} />
@@ -75,16 +103,24 @@ export default function Race() {
           question={question}
           category={game.categoryById[question.categoryId]}
           timerSeconds={timerSeconds}
+          paused={paused}
           onCorrect={game.correct}
           onWrong={game.wrong}
         />
       ) : null}
       {race.phase === 'choose' ? <ChooseOverlay race={race} onChoose={game.choose} /> : null}
-      {race.phase === 'finished' ? (
-        <WinnerOverlay race={race} onPlayAgain={playAgain} onChangeTeams={changeTeams} onEnd={end} />
+      {finished && winnerFor === race ? (
+        <WinnerOverlay race={race} onPlayAgain={playAgain} onChangeTeams={changeTeams} onEnd={end} ending={ending} />
       ) : null}
-      {paused && race.phase !== 'finished' ? (
-        <PauseMenu onResume={() => setPaused(false)} onPlayAgain={playAgain} onChangeTeams={changeTeams} onEnd={end} />
+      {paused && !(finished && winnerFor === race) ? (
+        <PauseMenu
+          real={game.state.mode === 'real'}
+          ending={ending}
+          onResume={() => setPaused(false)}
+          onPlayAgain={playAgain}
+          onChangeTeams={changeTeams}
+          onEnd={end}
+        />
       ) : null}
     </Screen>
   );
@@ -104,7 +140,9 @@ function Scoreboard({ race }: { race: RaceState }) {
               { borderColor: active ? colors.team[i] : 'transparent', backgroundColor: active ? colors.teamSoft[i] : colors.card },
             ]}
             accessible
-            accessibilityLabel={`${t.name}، ${t.position} من ${race.laneLength}${active ? '، دورهم' : ''}`}
+            accessibilityLabel={`${t.name}، ${t.position} من ${race.laneLength}${active ? '، دورهم' : ''}${
+              t.comeback === 'available' ? '، عندهم سؤال الإنقاذ' : ''
+            }`}
           >
             <Row style={{ gap: 6 }}>
               <MascotBadge mascotId={t.mascotId} photoUri={t.photoUri} size={30} ring={colors.team[i]} />
