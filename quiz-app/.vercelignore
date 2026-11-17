@@ -1,0 +1,8 @@
+# Never upload local settings or build leftovers to Vercel.
+# The EXPO_PUBLIC_* values are set as Vercel environment variables instead.
+.env*
+!.env.example
+node_modules
+dist
+.expo
+web-build

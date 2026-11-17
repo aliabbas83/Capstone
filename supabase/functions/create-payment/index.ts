@@ -7,12 +7,14 @@ import { admin, cors, json, mf, userFrom } from '../_shared/myfatoorah.ts';
 // - Expo Go on the home Wi-Fi: exp://192.168.x.x:8081/--/payment (private network addresses only)
 // - Expo Go tunnel:            exp://<name>.exp.direct/--/payment
 // - local web dev:             http://localhost:8082/payment
+// - live website (Vercel):     https://jawla-silk.vercel.app/payment (exact domain only)
 const RETURN_RE = new RegExp(
   '^(?:' +
     'jawla://payment' +
     '|exps?://(?:192\\.168|10\\.\\d{1,3}|172\\.(?:1[6-9]|2\\d|3[01]))(?:\\.\\d{1,3}){2}:\\d{2,5}/--/payment' +
     '|exps?://[a-z0-9-]{1,63}\\.exp\\.direct(?::\\d{2,5})?/--/payment' +
     '|http://(?:localhost|127\\.0\\.0\\.1):\\d{2,5}/payment' +
+    '|https://jawla-silk\\.vercel\\.app/payment' +
     ')$',
 );
 

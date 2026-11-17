@@ -92,3 +92,10 @@ Checked, no change needed:
 - **The app never builds a picture link from anything but a hex name:** `questionImageUrl` refuses any other value from the server.
 - **Same-answer rule for pictures:** a flag or map answer counts only inside its own category, so seeing Japan's flag does not block a text question about Japan, and the flag and the map of the same country are separate questions.
 - **Credits:** flag images from flagcdn.com and map shapes from Natural Earth (via world-atlas) are both public domain.
+
+## Website on Vercel (2026-11-17)
+
+- **Return link allow-list:** `create-payment` now also accepts exactly `https://jawla-silk.vercel.app/payment`. It is the full address with nothing around it (no wildcard `*.vercel.app`), so no other Vercel site can use our trusted Supabase link as a redirect. Redeployed as version 7; a call without sign-in still gets 401.
+- **Only public values in the website build:** Vercel has just the three `EXPO_PUBLIC_*` values (Supabase URL, publishable key, Sentry DSN), all meant to be public. No secret key is in Vercel. `.vercelignore` stops `.env*` files from being uploaded.
+- **The Vercel login token stays off the repo:** the Vercel CLI writes a short-lived `VERCEL_OIDC_TOKEN` to `.env.local` when linking. It was removed from that file (the app does not use it), and `.env*` and `.vercel/` are git-ignored.
+- **Nothing new to trust:** the website is the same app as on the phone, so prices, payment checks, question choice and game unlocking still happen on the server.

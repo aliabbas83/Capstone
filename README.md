@@ -6,6 +6,8 @@ Each team has a rowing boat on the sea. Answer a question right and you choose:
 
 The app is fully in Arabic, right-to-left.
 
+**Play it in the browser:** https://jawla-silk.vercel.app (web version on Vercel; the phone app runs in Expo Go).
+
 ## The game in a few lines
 
 1. Each team picks a name and a picture (a mascot, or a photo from the phone).
@@ -85,6 +87,19 @@ You need Node.js (LTS) and the **Expo Go** app on your phone (SDK 58).
 4. Scan the QR code with Expo Go (Android) or the Camera app (iPhone). Phone and computer must be on the same Wi-Fi.
 
 The **demo** works with no `.env.local` and no internet. Sign up, real games and payments need Supabase.
+
+## The website (Vercel)
+
+The web version lives on Vercel: project `jawla` in the `ali-4e21` team, address **https://jawla-silk.vercel.app**.
+
+- `quiz-app/vercel.json` builds it with `npx expo export -p web` into `dist/` and sends every page to `index.html` (so links like `/payment` work).
+- `quiz-app/.vercelignore` keeps `.env*`, `node_modules` and old builds out of the upload.
+- The three `EXPO_PUBLIC_*` values (all public) are set in the Vercel project as **Production** environment variables, so Vercel builds the same app as your laptop.
+- To publish a new version (Windows, from `quiz-app/`, signed in with `npx.cmd vercel login`):
+  ```bash
+  npx.cmd vercel deploy --prod
+  ```
+- Payments from the website come back to `https://jawla-silk.vercel.app/payment`. That exact address is on the allow-list in `supabase/functions/create-payment/index.ts`. If the website address ever changes, add the new one there and redeploy `create-payment`, or payments will fail with `bad_return_url`.
 
 ## Set up Supabase
 
