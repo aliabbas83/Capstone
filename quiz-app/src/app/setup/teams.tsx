@@ -19,7 +19,7 @@ export default function Teams() {
   const [a, b] = state.teams;
   const nameA = a.name.trim();
   const nameB = b.name.trim();
-  const sameName = nameA !== '' && nameA === nameB;
+  const sameName = nameA !== '' && nameA.toLowerCase() === nameB.toLowerCase(); // server compares lower()
   const ready = nameA !== '' && nameB !== '' && !sameName;
 
   return (
@@ -48,7 +48,7 @@ export default function Teams() {
             <T weight="bold" size={16}>
               وقت الإجابة
             </T>
-            <Row style={styles.segment} >
+            <Row style={styles.segment} accessibilityRole="radiogroup" accessibilityLabel="وقت الإجابة">
               {TIMERS.map((s) => {
                 const on = state.timerSeconds === s;
                 return (

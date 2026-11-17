@@ -91,6 +91,7 @@ export default function Race() {
             game.ask(c, p, comeback);
           }}
           onMenu={() => setPaused(true)}
+          onCategoryChange={game.clearAskError}
         />
       ) : (
         <View style={styles.panelSpacer} />

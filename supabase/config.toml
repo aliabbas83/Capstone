@@ -1,0 +1,10 @@
+# Supabase CLI settings for project "jawla" (ref mqpzimmvnnzcoyfuqnbe).
+project_id = "jawla"
+
+# These two are called without a Supabase user token, so JWT checking is off.
+# They check everything themselves (MyFatoorah re-check, webhook signature).
+[functions.payment-return]
+verify_jwt = false
+
+[functions.payment-webhook]
+verify_jwt = false

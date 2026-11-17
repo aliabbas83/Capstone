@@ -422,6 +422,7 @@ export function PickPanel({
   busy = false,
   error = null,
   onMenu,
+  onCategoryChange,
 }: {
   race: RaceState;
   categories: Category[];
@@ -429,11 +430,17 @@ export function PickPanel({
   onAsk: (categoryId: string, points: Points, isComeback: boolean) => void;
   /** Opens the pause menu (used when no questions are left at all). */
   onMenu?: () => void;
+  /** Called when the team picks or clears a category (hides an old error). */
+  onCategoryChange?: () => void;
   /** True while the server is fetching the question. */
   busy?: boolean;
   error?: string | null;
 }) {
-  const [cat, setCat] = useState<string | null>(null);
+  const [cat, setCatState] = useState<string | null>(null);
+  const setCat = (id: string | null) => {
+    setCatState(id);
+    onCategoryChange?.();
+  };
   const turn = race.turn;
   const team = race.teams[turn];
   const ids = [...race.teams[0].categories, ...race.teams[1].categories];

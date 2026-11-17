@@ -19,3 +19,6 @@ supabase/.temp/
 supabase/questions/*
 !supabase/questions/README.md
 !supabase/questions/template.csv
+
+# Agent worktrees (local only)
+.claude/worktrees/

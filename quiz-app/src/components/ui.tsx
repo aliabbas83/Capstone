@@ -12,6 +12,7 @@ import {
   Text,
   TextProps,
   View,
+  ViewProps,
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -55,8 +56,12 @@ export function T({
   );
 }
 
-export function Row({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  return <View style={[{ flexDirection: ROW, alignItems: 'center' }, style]}>{children}</View>;
+export function Row({ children, style, ...rest }: ViewProps & { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View {...rest} style={[{ flexDirection: ROW, alignItems: 'center' }, style]}>
+      {children}
+    </View>
+  );
 }
 
 /** Sky-to-sea background with a soft sun. */
@@ -105,6 +110,7 @@ export function Button({
   size = 'lg',
   style,
   accessibilityHint,
+  accessibilityLabel,
 }: {
   label: string;
   onPress?: () => void;
@@ -115,6 +121,8 @@ export function Button({
   size?: 'lg' | 'md' | 'sm';
   style?: StyleProp<ViewStyle>;
   accessibilityHint?: string;
+  /** Spoken label when it should say more than the visible text. */
+  accessibilityLabel?: string;
 }) {
   const [face, base, text] = BUTTON_COLORS[tone];
   const h = size === 'lg' ? 60 : size === 'md' ? 50 : 42;
@@ -123,7 +131,7 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: !!off }}
       disabled={off}
