@@ -22,6 +22,7 @@ import {
   REAL_LANE_LENGTH,
 } from './demo-questions';
 import { useAuth } from '@/lib/auth';
+import { reportError } from '@/lib/monitoring';
 import {
   drawQuestion,
   fetchCategories,
@@ -289,6 +290,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           refreshProfile();
           return true;
         } catch (e) {
+          reportError(e, 'start_game');
           setStartError(gameErrorMessage(e));
           return false;
         } finally {
@@ -324,6 +326,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           });
           return 'ok';
         } catch (e) {
+          reportError(e, 'draw_question');
           setAskError(gameErrorMessage(e));
           return 'error';
         } finally {

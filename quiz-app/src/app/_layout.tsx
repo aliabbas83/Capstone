@@ -4,12 +4,15 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { GameProvider } from '@/game/game-store';
 import { AuthProvider } from '@/lib/auth';
+import { withMonitoring } from '@/lib/monitoring';
 import { startSound } from '@/lib/sound';
 import { colors } from '@/theme';
 
 startSound();
 
-export default function RootLayout() {
+export default withMonitoring(RootLayout);
+
+function RootLayout() {
   const [loaded] = useFonts({ Cairo_500Medium, Cairo_700Bold, Cairo_900Black });
 
   if (!loaded) {

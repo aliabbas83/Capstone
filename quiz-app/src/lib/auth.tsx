@@ -2,6 +2,7 @@ import type { AuthError, Session } from '@supabase/supabase-js';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import type { Database } from './database.types';
+import { setMonitoringUser } from './monitoring';
 import { supabase, supabaseConfigured } from './supabase';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -50,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const userId = session?.user.id ?? null;
+
+  useEffect(() => setMonitoringUser(userId), [userId]);
 
   const refreshProfile = useCallback(async () => {
     if (!userId) return;

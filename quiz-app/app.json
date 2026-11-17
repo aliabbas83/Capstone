@@ -28,7 +28,8 @@
       "expo-font",
       "expo-router",
       "expo-audio",
-      "expo-web-browser"
+      "expo-web-browser",
+      "@sentry/react-native"
     ],
     "scheme": "jawla",
     "backgroundColor": "#140A33",

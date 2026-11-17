@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Button, Card, FadeIn, Screen, T } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { reportError } from '@/lib/monitoring';
 import { PAY_MESSAGES, paymentErrorMessage, verifyOrder, type PayStatus } from '@/lib/payments';
 import { colors } from '@/theme';
 
@@ -28,6 +29,7 @@ export default function Payment() {
       setStatus(r.status);
       if (r.status === 'paid') refreshProfile();
     } catch (e) {
+      reportError(e, 'verify_payment');
       setError(paymentErrorMessage(e));
     } finally {
       setChecking(false);

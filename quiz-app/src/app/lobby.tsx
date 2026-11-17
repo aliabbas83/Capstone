@@ -6,6 +6,7 @@ import { Button, Card, FadeIn, IconButton, Row, Screen, T } from '@/components/u
 import { useGame } from '@/game/game-store';
 import { toArabicDigits } from '@/lib/arabic';
 import { useAuth } from '@/lib/auth';
+import { reportError } from '@/lib/monitoring';
 import { buyGame, PAY_MESSAGES, paymentErrorMessage, type PayStatus } from '@/lib/payments';
 import { supabase } from '@/lib/supabase';
 import { maskPhone, phoneFromLoginEmail } from '@/lib/validate';
@@ -62,6 +63,7 @@ export default function Lobby() {
       const { status } = await buyGame();
       setPayNote({ status });
     } catch (e) {
+      reportError(e, 'buy_game');
       setPayNote({ error: paymentErrorMessage(e) });
     } finally {
       setPaying(false);

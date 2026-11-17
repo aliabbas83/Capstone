@@ -2,8 +2,19 @@
 // The app sends only where to come back to; the amount is decided here, never by the app.
 import { admin, cors, json, mf, userFrom } from '../_shared/myfatoorah.ts';
 
-// The app's own return link: Expo Go (exp://), the built app (jawla://), or local web dev.
-const RETURN_RE = /^(?:(?:jawla|exps?):\/\/[^\s]{1,250}|http:\/\/(?:localhost|127\.0\.0\.1):\d{2,5}\/[^\s]{0,200})$/;
+// Only the app's own payment screen can be the return link (no open redirect):
+// - the built app:            jawla://payment
+// - Expo Go on the home Wi-Fi: exp://192.168.x.x:8081/--/payment (private network addresses only)
+// - Expo Go tunnel:            exp://<name>.exp.direct/--/payment
+// - local web dev:             http://localhost:8082/payment
+const RETURN_RE = new RegExp(
+  '^(?:' +
+    'jawla://payment' +
+    '|exps?://(?:192\\.168|10\\.\\d{1,3}|172\\.(?:1[6-9]|2\\d|3[01]))(?:\\.\\d{1,3}){2}:\\d{2,5}/--/payment' +
+    '|exps?://[a-z0-9-]{1,63}\\.exp\\.direct(?::\\d{2,5})?/--/payment' +
+    '|http://(?:localhost|127\\.0\\.0\\.1):\\d{2,5}/payment' +
+    ')$',
+);
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });

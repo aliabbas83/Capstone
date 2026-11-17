@@ -100,6 +100,8 @@ export function gameErrorMessage(e: unknown): string {
   if (/categories/i.test(msg)) return 'اختاروا ٨ فئات مختلفة.';
   if (/photo_too_big/i.test(msg)) return 'الصورة كبيرة. اختاروا صورة أصغر أو شخصية بدلها.';
   if (/photo|storage|mime/i.test(msg)) return 'ما قدرنا نرفع صورة الفريق. جرّبوا مرة ثانية أو اختاروا شخصية.';
+  if (/game expired/i.test(msg)) return 'مرّ وقت طويل على هذه اللعبة (أكثر من ٦ ساعات). ابدأوا لعبة جديدة.';
+  if (/question limit/i.test(msg)) return 'وصلت اللعبة للحد الأقصى من الأسئلة. ابدأوا لعبة جديدة.';
   if (/not active|not found/i.test(msg)) return 'هذه اللعبة انتهت. ابدأوا لعبة جديدة.';
   if (/not signed in|jwt/i.test(msg)) return 'انتهت جلستك. سجّل دخول مرة ثانية.';
   if (/network|fetch/i.test(msg)) return 'لا يوجد اتصال بالإنترنت. تأكد من الشبكة وحاول مرة ثانية.';
