@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Boat, Flag } from '@/components/race-art';
 import { SoundToggles } from '@/components/sound-toggles';
 import { Button, FadeIn, Row, Screen, T } from '@/components/ui';
@@ -105,6 +105,17 @@ export default function Home() {
           </>
         )}
       </FadeIn>
+
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="بعض الأسئلة مترجمة من Open Trivia DB بترخيص CC BY-SA 4.0"
+        onPress={() => Linking.openURL('https://opentdb.com').catch(() => {})}
+        style={styles.credit}
+      >
+        <T size={12} center color={colors.muted}>
+          بعض الأسئلة مترجمة من Open Trivia DB · CC BY-SA 4.0
+        </T>
+      </Pressable>
     </Screen>
   );
 }
@@ -119,5 +130,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   link: { minHeight: 44, justifyContent: 'center' },
+  credit: { minHeight: 44, justifyContent: 'center', marginTop: 4 },
   divider: { height: 1, backgroundColor: colors.line, marginVertical: 4 },
 });

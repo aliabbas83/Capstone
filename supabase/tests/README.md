@@ -10,6 +10,7 @@ grants, the server functions and the team-photos storage rules.
 | `03_start_finish_game.test.sql` | `start_game` takes exactly 1 credit, fails at 0, bad input costs nothing; `finish_game` only for the owner and only once |
 | `04_orders.test.sql` | price (1000 fils) set on the server; only the service role can create/confirm orders; credit added once, only when invoice + amount match; 5-pending-orders limit |
 | `05_team_photos_storage.test.sql` | `team-photos` bucket is private, 2 MB, images only; each user can only upload, see and delete in their own folder; no overwrite/rename |
+| `06_question_refill.test.sql` | answer key (same answer written differently, numbers per category); a seen answer never comes back; refill API (`add_questions`, `refill_context`, `known_refs`, `check_refill_token`) is service-role only and skips duplicates, same answers and bad fields; daily cron job reads its token from Vault |
 
 Every file runs inside `begin; ... rollback;`. Test users, categories,
 questions and files are created inside that transaction and thrown away at the

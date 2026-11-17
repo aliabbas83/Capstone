@@ -73,3 +73,12 @@ Checked, no change needed:
 - The other Supabase project in the account has no custom secrets, so no payment key is left there.
 - Sentry has no open issues. "Prevent Storing of IP Addresses" is on.
 - Webhook secret: `MYFATOORAH_WEBHOOK_SECRET` is set in Supabase (by the user, 2026-11-17). Live check: a fake payment event with no signature and one with a wrong signature both get 401 `invalid_signature`. A real signed event is checked by the next sandbox payment: the function logs must not show "bad or missing signature".
+
+## M9 question refill (2026-11-17)
+
+- **Who can run it:** `refill-questions` has no app-facing use. It only runs when the caller sends the random `refill_token` kept in Supabase Vault (only the pg_cron job reads it; it is not in git or in the job text). Wrong or missing token → 401. The refill database functions (`add_questions`, `refill_context`, `known_refs`, `check_refill_token`) are service-role only (pgTAP `06_question_refill`).
+- **Cost limit:** at most ~60 new questions per run (`REFILL_MAX_PER_RUN`, max 100), once a day, and only for category/points pairs below target (60 per points level, 20 for 5 points). When the bank is full, a run makes no AI calls.
+- **AI output is data, not instructions (OWASP LLM01/LLM05):** text from Open Trivia DB and the model is never executed. `add_questions` checks category, points, lengths, duplicates (question text, Open Trivia DB ref) and same answers before saving. A second, strict AI pass drops anything doubtful; every row keeps `source` (`opentdb` / `ai`), so a bad batch can be switched off with one update.
+- **Secrets:** `OPENROUTER_API_KEY` lives only in Supabase secrets, added by the owner. Errors return short codes; details go only to the function logs.
+- **License:** Open Trivia DB questions are CC BY-SA 4.0; the app credits them on the home screen, and translated questions are tagged `opentdb`.
+- **Same-answer rule:** `draw_question` never gives an account a question whose normalised answer (`answer_key`) it has already seen, in any game or category. Plain numbers count per category.
