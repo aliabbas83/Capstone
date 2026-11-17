@@ -8,6 +8,7 @@ import { RaceTrack } from '@/components/race-track';
 import { IconButton, Row, Screen, T } from '@/components/ui';
 import type { RaceState, TeamIdx } from '@/game/engine';
 import { useGame } from '@/game/game-store';
+import { useRaceSounds } from '@/game/use-race-sounds';
 import { toArabicDigits } from '@/lib/arabic';
 import { colors, radius } from '@/theme';
 
@@ -15,6 +16,7 @@ export default function Race() {
   const game = useGame();
   const { race, question, timerSeconds } = game.state;
   const [paused, setPaused] = useState(false);
+  useRaceSounds(race);
 
   if (!race) return <Redirect href="/" />;
 
@@ -118,7 +120,7 @@ function Scoreboard({ race }: { race: RaceState }) {
             </Row>
             {active ? (
               <View style={[styles.turnTag, { backgroundColor: colors.team[i] }]}>
-                <T size={10} weight="black" color={colors.onTeam[i]} center>
+                <T size={12} weight="black" color={colors.onTeam[i]} center>
                   دورهم
                 </T>
               </View>

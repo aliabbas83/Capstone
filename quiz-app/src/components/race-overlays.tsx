@@ -4,10 +4,13 @@ import { other, Points, RaceState, STEAL_SECONDS, TeamIdx } from '@/game/engine'
 import type { Category, Question } from '@/game/demo-questions';
 import { toArabicDigits } from '@/lib/arabic';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
+import { play } from '@/lib/sound';
 import { Confetti, TimerRing } from './effects';
+import { SoundToggles } from './sound-toggles';
 import { ArrowDownIcon, ArrowUpIcon, CheckIcon, CrossIcon } from './icons';
 import { MascotBadge } from './mascot-badge';
 import { Button, Card, haptic, PopIn, Row, T } from './ui';
+import { useReduceMotion } from '@/lib/motion';
 
 export const teamName = (race: RaceState, i: TeamIdx) => race.teams[i].name;
 
@@ -45,18 +48,21 @@ export function QuestionOverlay({
   const [seconds, setSeconds] = useState(total);
   const [revealed, setRevealed] = useState(false);
   const flip = useState(() => new Animated.Value(0))[0];
+  const still = useReduceMotion();
   const answering = p.answering;
   const color = colors.team[answering];
 
   useEffect(() => {
+    if (still) return flip.setValue(1);
     flip.setValue(0);
     Animated.spring(flip, { toValue: 1, friction: 7, tension: 60, useNativeDriver: nativeDriver }).start();
-  }, [flip]);
+  }, [flip, still]);
 
   useEffect(() => {
     if (revealed || seconds <= 0) return;
     const id = setTimeout(() => {
       setSeconds((s) => s - 1);
+      if (seconds - 1 > 0 && seconds - 1 <= 5) play('tick'); // last five seconds
       if (seconds - 1 === 0) haptic('warning');
     }, 1000);
     return () => clearTimeout(id);
@@ -318,6 +324,7 @@ export function PauseMenu({
           <T weight="black" size={26} center accessibilityRole="header">
             استراحة
           </T>
+          <SoundToggles compact />
           <Button label="كمّل اللعب" onPress={onResume} />
           <Button label="العب مرة ثانية" tone="white" onPress={onPlayAgain} />
           <Button label="غيّر الفرق" tone="white" onPress={onChangeTeams} />

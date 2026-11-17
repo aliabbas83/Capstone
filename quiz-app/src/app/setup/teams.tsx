@@ -56,6 +56,7 @@ export default function Teams() {
                     key={s}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: on }}
+                    aria-checked={on}
                     accessibilityLabel={`${s} ثانية`}
                     onPress={() => {
                       haptic();
@@ -74,6 +75,11 @@ export default function Teams() {
         </ScrollView>
 
         <View style={styles.footer}>
+          {!ready && !sameName ? (
+            <T size={14} color={colors.ink} center style={{ marginBottom: 8 }}>
+              اكتبوا اسم الفريقين للمتابعة
+            </T>
+          ) : null}
           <Button label="التالي: اختيار الفئات" disabled={!ready} onPress={() => router.push('/setup/categories')} />
         </View>
       </KeyboardAvoidingView>
@@ -123,10 +129,10 @@ function TeamCard({ index, team, onChange }: { index: TeamIdx; team: TeamDraft; 
             value={team.name}
             onChangeText={onName}
             maxLength={MAX_NAME}
-            placeholder={index === 0 ? 'مثل: الصقور' : 'مثل: النمور'}
+            placeholder="اكتب اسم الفريق"
             placeholderTextColor={colors.muted}
             accessibilityLabel={index === 0 ? 'اسم الفريق الأول' : 'اسم الفريق الثاني'}
-            style={styles.input}
+            style={[styles.input, team.name === '' && styles.inputEmpty]}
             returnKeyType="done"
           />
           {!team.photoUri ? (
@@ -168,6 +174,7 @@ function TeamCard({ index, team, onChange }: { index: TeamIdx; team: TeamDraft; 
                 key={m.id}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: on }}
+                    aria-checked={on}
                 accessibilityLabel={m.label}
                 onPress={() => {
                   haptic();
@@ -199,6 +206,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
     paddingVertical: 4,
   },
+  // Empty field: the hint is lighter and smaller so it never looks like a typed name.
+  inputEmpty: { fontFamily: fonts.regular, fontSize: 18, minHeight: 41 },
   grid: { flexDirection: ROW, flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
   segment: { backgroundColor: colors.cardSoft, borderRadius: radius.md, padding: 4, gap: 4 },
   segBtn: { flex: 1, height: 46, borderRadius: radius.sm, justifyContent: 'center' },

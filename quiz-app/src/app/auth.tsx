@@ -275,8 +275,9 @@ function Segment({
             accessibilityRole="tab"
             accessibilityLabel={label}
             accessibilityState={{ selected: on }}
+            aria-selected={on}
             onPress={() => onChange(v)}
-            style={[styles.segBtn, small && { height: 40 }, on && styles.segOn]}
+            style={[styles.segBtn, small && { height: 44 }, on && styles.segOn]}
           >
             <T weight={on ? 'black' : 'bold'} size={small ? 14 : 16} center color={on ? colors.ink : colors.muted}>
               {label}

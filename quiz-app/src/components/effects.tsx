@@ -4,6 +4,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { toArabicDigits } from '@/lib/arabic';
 import { colors, nativeDriver } from '@/theme';
 import { T } from './ui';
+import { useReduceMotion } from '@/lib/motion';
 
 const CONFETTI_COLORS = [colors.gold, colors.team[0], colors.team[1], '#22C55E', '#2EA8FF', '#FF5C93'];
 
@@ -21,6 +22,8 @@ export function Confetti({ count = 46 }: { count?: number }) {
         round: Math.random() > 0.6,
       })),
   );
+  const still = useReduceMotion();
+  if (still) return null; // the flag and trophy still show who won
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {pieces.map((p, i) => (

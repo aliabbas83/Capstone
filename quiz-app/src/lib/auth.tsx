@@ -55,7 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (error) setProfileError('تعذّر تحميل حسابك. تأكد من الاتصال وحاول مرة ثانية.');
-    else {
+    else if (!data) {
+      // Signed in on this phone, but the account no longer exists on the server.
+      setProfile(null);
+      setProfileError('ما لقينا حسابك. سجّل الخروج وادخل من جديد.');
+    } else {
       setProfileError(null);
       setProfile(data);
     }
@@ -70,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setProfileError(null);
   }, []);
 
   const value = useMemo(

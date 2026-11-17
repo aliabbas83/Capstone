@@ -61,3 +61,22 @@ export const UndoIcon = ({ size = 18, color = colors.ink }: P) => (
     <Path d="M15 7h-5a5 5 0 000 10h6M15 7l-3-3M15 7l-3 3" {...stroke(color)} />
   </Svg>
 );
+
+/** Speaker; `off` adds a cross for "muted". */
+export const SpeakerIcon = ({ size = 20, color = colors.ink, off }: P & { off?: boolean }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" {...stroke(color)} />
+    {off ? (
+      <Path d="M16 9.5l5 5M21 9.5l-5 5" {...stroke(color)} />
+    ) : (
+      <Path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11" {...stroke(color)} />
+    )}
+  </Svg>
+);
+
+export const MusicIcon = ({ size = 20, color = colors.ink }: P) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M9 18V6l10-2v12" {...stroke(color)} />
+    <Path d="M9 18a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM19 16a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" {...stroke(color)} />
+  </Svg>
+);

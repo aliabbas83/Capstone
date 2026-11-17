@@ -2,16 +2,20 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { Boat, Flag } from '@/components/race-art';
+import { SoundToggles } from '@/components/sound-toggles';
 import { Button, FadeIn, Row, Screen, T } from '@/components/ui';
 import { useGame } from '@/game/game-store';
 import { useAuth } from '@/lib/auth';
 import { colors, nativeDriver, radius } from '@/theme';
+import { useReduceMotion } from '@/lib/motion';
 
 export default function Home() {
   const { begin } = useGame();
   const { session } = useAuth();
   const bob = useState(() => new Animated.Value(0))[0];
+  const still = useReduceMotion();
   useEffect(() => {
+    if (still) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(bob, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.sin), useNativeDriver: nativeDriver }),
@@ -20,7 +24,7 @@ export default function Home() {
     );
     loop.start();
     return () => loop.stop();
-  }, [bob]);
+  }, [bob, still]);
   const translateY = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
 
   return (
@@ -33,6 +37,10 @@ export default function Home() {
           سباق الأسئلة بين الفرق — جاوب صح وجدّف لخط النهاية!
         </T>
       </FadeIn>
+
+      <View style={{ marginTop: 14 }}>
+        <SoundToggles compact />
+      </View>
 
       <View style={styles.scene} accessible accessibilityLabel="قاربان يتسابقان نحو العلم">
         <Row style={{ gap: 40, alignItems: 'flex-end' }}>

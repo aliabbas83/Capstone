@@ -6,6 +6,7 @@ import { toArabicDigits } from '@/lib/arabic';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { Boat, FinishLine, Flag } from './race-art';
 import { T } from './ui';
+import { useReduceMotion } from '@/lib/motion';
 
 const TOP = 54; // finish strip + flag
 const BOTTOM = 70; // start area under the boat
@@ -44,6 +45,7 @@ function Lane({ race, index, height }: { race: RaceState; index: TeamIdx; height
   const [laneW, setLaneW] = useState(0);
   const isTurn = race.phase !== 'finished' && race.turn === index;
   const isWinner = race.winner === index;
+  const still = useReduceMotion();
 
   // Start rowing as soon as the position changes (state adjusted during render, not in an effect).
   if (shownPos !== team.position) {
@@ -54,11 +56,11 @@ function Lane({ race, index, height }: { race: RaceState; index: TeamIdx; height
   useEffect(() => {
     Animated.timing(y, {
       toValue: team.position,
-      duration: 900,
-      easing: Easing.out(Easing.back(1.2)),
+      duration: still ? 250 : 900,
+      easing: still ? Easing.linear : Easing.out(Easing.back(1.2)),
       useNativeDriver: nativeDriver,
     }).start(() => setRowing(false));
-  }, [team.position, y]);
+  }, [team.position, y, still]);
 
   const translateY = y.interpolate({ inputRange: [0, L], outputRange: [0, -travel] });
 
@@ -90,7 +92,7 @@ function Lane({ race, index, height }: { race: RaceState; index: TeamIdx; height
           <View key={s} pointerEvents="none" style={[styles.buoyRow, { top }]}>
             <View style={[styles.buoy, big && styles.buoyBig]} />
             {big ? (
-              <T size={11} weight="black" color="#FFFFFF" style={styles.stepNum}>
+              <T size={12} weight="black" color="#FFFFFF" style={styles.stepNum}>
                 {toArabicDigits(s)}
               </T>
             ) : null}
@@ -100,7 +102,7 @@ function Lane({ race, index, height }: { race: RaceState; index: TeamIdx; height
       })}
 
       <View style={styles.startTag}>
-        <T size={11} weight="bold" color={colors.ink} center>
+        <T size={12} weight="bold" color={colors.ink} center>
           البداية
         </T>
       </View>
@@ -122,13 +124,15 @@ function Lane({ race, index, height }: { race: RaceState; index: TeamIdx; height
 /** Slow drifting wave marks behind the lanes. */
 function Waves() {
   const t = useState(() => new Animated.Value(0))[0];
+  const still = useReduceMotion();
   useEffect(() => {
+    if (still) return;
     const loop = Animated.loop(
       Animated.timing(t, { toValue: 1, duration: 4000, easing: Easing.linear, useNativeDriver: nativeDriver }),
     );
     loop.start();
     return () => loop.stop();
-  }, [t]);
+  }, [t, still]);
   const translateY = t.interpolate({ inputRange: [0, 1], outputRange: [-60, 0] });
   return (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateY }] }]}>

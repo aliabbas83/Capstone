@@ -15,7 +15,9 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { play } from '@/lib/sound';
 import { colors, fonts, nativeDriver, radius, ROW, shadow, TEXT_START } from '@/theme';
+import { useReduceMotion } from '@/lib/motion';
 
 export function haptic(kind: 'tap' | 'success' | 'warning' | 'heavy' = 'tap') {
   if (Platform.OS === 'web') return;
@@ -127,6 +129,7 @@ export function Button({
       disabled={off}
       onPress={() => {
         haptic(tone === 'gold' ? 'heavy' : 'tap');
+        play('tap');
         onPress?.();
       }}
       style={[{ opacity: disabled ? 0.45 : 1 }, style]}
@@ -185,6 +188,7 @@ export function IconButton({
       hitSlop={8}
       onPress={() => {
         haptic();
+        play('tap');
         onPress();
       }}
       style={({ pressed }) => [styles.iconBtn, pressed && { transform: [{ scale: 0.92 }] }]}
@@ -207,7 +211,9 @@ export function FadeIn({
   style?: StyleProp<ViewStyle>;
 }) {
   const v = useState(() => new Animated.Value(0))[0];
+  const still = useReduceMotion();
   useEffect(() => {
+    if (still) return v.setValue(1);
     Animated.timing(v, {
       toValue: 1,
       duration: 420,
@@ -215,7 +221,7 @@ export function FadeIn({
       easing: Easing.out(Easing.back(1.4)),
       useNativeDriver: nativeDriver,
     }).start();
-  }, [v, delay]);
+  }, [v, delay, still]);
   return (
     <Animated.View
       style={[
@@ -231,9 +237,11 @@ export function FadeIn({
 /** Pops in with a bounce (cards, badges). */
 export function PopIn({ children, delay = 0, style }: { children: ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
   const v = useState(() => new Animated.Value(0))[0];
+  const still = useReduceMotion();
   useEffect(() => {
+    if (still) return v.setValue(1);
     Animated.spring(v, { toValue: 1, delay, friction: 6, tension: 90, useNativeDriver: nativeDriver }).start();
-  }, [v, delay]);
+  }, [v, delay, still]);
   return (
     <Animated.View style={[style, { opacity: v, transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}>
       {children}

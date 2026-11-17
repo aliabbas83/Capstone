@@ -3,6 +3,7 @@ import { Animated, Easing, View } from 'react-native';
 import Svg, { Ellipse, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { colors, nativeDriver } from '@/theme';
 import { MascotBadge } from './mascot-badge';
+import { useReduceMotion } from '@/lib/motion';
 
 /** Top-down rowing boat with the team picture on board. Bow points up (towards the finish). */
 export function Boat({
@@ -20,8 +21,9 @@ export function Boat({
 }) {
   const h = width * 1.55;
   const oar = useState(() => new Animated.Value(0))[0];
+  const still = useReduceMotion();
   useEffect(() => {
-    if (!rowing) return;
+    if (!rowing || still) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(oar, { toValue: 1, duration: 260, easing: Easing.inOut(Easing.sin), useNativeDriver: nativeDriver }),
@@ -30,7 +32,7 @@ export function Boat({
     );
     loop.start();
     return () => loop.stop();
-  }, [rowing, oar]);
+  }, [rowing, oar, still]);
   const rot = oar.interpolate({ inputRange: [0, 1], outputRange: ['-14deg', '14deg'] });
   const rotRev = oar.interpolate({ inputRange: [0, 1], outputRange: ['14deg', '-14deg'] });
 
@@ -67,9 +69,10 @@ export function Boat({
 export function Flag({ color, raised, size = 44 }: { color: string; raised: boolean; size?: number }) {
   const up = useState(() => new Animated.Value(raised ? 1 : 0))[0];
   const wave = useState(() => new Animated.Value(0))[0];
+  const still = useReduceMotion();
   useEffect(() => {
     Animated.spring(up, { toValue: raised ? 1 : 0, friction: 5, useNativeDriver: nativeDriver }).start();
-    if (!raised) return;
+    if (!raised || still) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(wave, { toValue: 1, duration: 380, useNativeDriver: nativeDriver }),
@@ -78,7 +81,7 @@ export function Flag({ color, raised, size = 44 }: { color: string; raised: bool
     );
     loop.start();
     return () => loop.stop();
-  }, [raised, up, wave]);
+  }, [raised, up, wave, still]);
   const poleH = size * 1.4;
   const flagH = size * 0.5;
   return (
