@@ -3,11 +3,12 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { BackIcon, UndoIcon } from '@/components/icons';
 import { Button, Card, IconButton, Row, Screen, T } from '@/components/ui';
 import { COMEBACK_POINTS, COMEBACK_TRIGGER, LEVEL_LIMITS, STEAL_SECONDS } from '@/game/engine';
+import { LIFELINE_LABELS } from '@/game/lifelines';
 import { levelLabel, timesLabel } from '@/game/levels';
 import { CATEGORIES_PER_TEAM, DEMO_LANE_LENGTH, REAL_LANE_LENGTH } from '@/game/demo-questions';
 import { colors, radius } from '@/theme';
 
-/** The whole game in eight short steps: something the host can read out in about 30 seconds. */
+/** The whole game in nine short steps: something the host can read out in under a minute. */
 const STEPS = [
   `الفريقين يختارون ${CATEGORIES_PER_TEAM * 2} فئات بالتناوب، ${CATEGORIES_PER_TEAM} لكل فريق.`,
   `في دوركم اختاروا أي فئة منها، وبعدها النقاط: ${levelLabel(2)}، ${levelLabel(3)} أو ${levelLabel(4)}. كل ما زادت النقاط صار السؤال أصعب.`,
@@ -15,6 +16,7 @@ const STEPS = [
   'المقدّم يقرأ السؤال بصوت عالي، يكشف الإجابة، ويضغط صح أو خطأ.',
   'جاوبتوا صح؟ تقدّموا بسبّاحكم، أو رجّعوا سبّاح الخصم نفس الخطوات.',
   `غلطتوا أو خلص الوقت؟ الفريق الثاني عنده ${STEAL_SECONDS} ثانية يسرق السؤال.`,
+  `لكل فريق 3 مساعدات، كل وحدة مرة بالسباق: «${LIFELINE_LABELS.two}» (واحد صح وواحد غلط، وإذا غلطتوا ما فيه سرقة)، «${LIFELINE_LABELS.time}»، و«${LIFELINE_LABELS.swap}».`,
   `إذا صار الخصم على بعد ${COMEBACK_TRIGGER} خطوات أو أقل من النهاية، ينفتح لكم سؤال الإنقاذ +${COMEBACK_POINTS} مرة وحدة.`,
   `أول سبّاح يوصل خط النهاية ويرفع العلم يفوز. السباق ${REAL_LANE_LENGTH} خطوة، والتجربة المجانية ${DEMO_LANE_LENGTH}.`,
 ];

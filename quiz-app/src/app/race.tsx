@@ -151,6 +151,8 @@ export default function Race() {
           timerSeconds={timerSeconds}
           paused={paused}
           startRevealed={startRevealed}
+          canSwap={game.remaining(question.categoryId, question.points) > 0}
+          onLifeline={game.lifeline}
           onCorrect={() => {
             setLastCall('correct');
             game.correct();

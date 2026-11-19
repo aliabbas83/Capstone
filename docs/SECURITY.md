@@ -99,3 +99,11 @@ Checked, no change needed:
 - **Only public values in the website build:** Vercel has just the three `EXPO_PUBLIC_*` values (Supabase URL, publishable key, Sentry DSN), all meant to be public. No secret key is in Vercel. `.vercelignore` stops `.env*` files from being uploaded.
 - **The Vercel login token stays off the repo:** the Vercel CLI writes a short-lived `VERCEL_OIDC_TOKEN` to `.env.local` when linking. It was removed from that file (the app does not use it), and `.env*` and `.vercel/` are git-ignored.
 - **Nothing new to trust:** the website is the same app as on the phone, so prices, payment checks, question choice and game unlocking still happen on the server.
+
+## M15 lifelines (2026-11-19)
+
+- **Wrong answers are written on the server only.** The edge function `seed-wrong-answers` runs only with the `refill_token` from Vault (401 otherwise, checked live). App users cannot call `set_wrong_answers` or `questions_missing_wrong` (execute revoked; pgTAP `08_lifelines`).
+- **Model output is not trusted.** Every wrong answer goes through `private.set_wrong_answers`, which skips anything that is badly shaped, longer than 120 characters, contains control characters or `<` `>`, or equals the right answer (also after normalising). It never overwrites an existing wrong answer and never touches picture questions. The model is told that question text is data, not instructions.
+- **Nothing new is secret on the device.** The app already receives the right answer with each question, because the host reveals it. The wrong answer is sent with it and is no more sensitive.
+- **Once per team is an app rule.** The server cannot tell the two teams on one phone apart, so the lifeline limit is enforced in the app, like the level limits. "Change the question" draws through `draw_question`, so the server's own limits (never a repeated question, 100 questions per game, 6 hours) still apply.
+- **Picture downloads** only ever use the address built from a server-given hex name (`questionImageUrl`), and a reply that is not an SVG is refused before it is drawn.

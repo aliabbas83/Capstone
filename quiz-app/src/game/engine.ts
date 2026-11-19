@@ -24,6 +24,16 @@ export type LevelUses = Record<LevelPoints, number>;
 const NO_USES: LevelUses = { 2: 0, 3: 0, 4: 0 };
 const isLevel = (p: Points): p is LevelPoints => p !== COMEBACK_POINTS;
 
+/**
+ * Lifelines: each team may use each one once per game, while it is the team answering.
+ *   two  – pick from two answers (the right one and a wrong one); a wrong pick cannot be stolen
+ *   time – EXTRA_SECONDS more on the timer for this question
+ *   swap – change the question for another one with the same category and points
+ */
+export type Lifeline = 'two' | 'time' | 'swap';
+export const LIFELINES: readonly Lifeline[] = ['two', 'time', 'swap'];
+export const EXTRA_SECONDS = 30;
+
 export interface RaceTeam {
   name: string;
   mascotId: string;
@@ -33,7 +43,12 @@ export interface RaceTeam {
   comeback: Comeback;
   /** Picks used per level since the last reset (see LEVEL_LIMITS). */
   levelUses: LevelUses;
+  /** Lifelines this team has used in this game. */
+  lifelinesUsed: Lifeline[];
 }
+
+/** True while the team still has this lifeline. */
+export const hasLifeline = (team: RaceTeam, kind: Lifeline): boolean => !(team.lifelinesUsed ?? []).includes(kind);
 
 /** Picks a team has left at this level. The comeback level is not limited here (it has its own once-only rule). */
 export function levelsLeft(team: RaceTeam, points: Points): number {
@@ -58,6 +73,10 @@ export interface Pending {
   /** The team answering right now (owner, or the other team when stealing). */
   answering: TeamIdx;
   isComeback: boolean;
+  /** "Pick from two answers" was used on this question. */
+  twoAnswers: boolean;
+  /** Seconds added to this question's timer by the "extra time" lifeline. */
+  extraSeconds: number;
 }
 
 export interface LastMove {
@@ -80,7 +99,7 @@ export interface RaceState {
 
 export const other = (t: TeamIdx): TeamIdx => (t === 0 ? 1 : 0);
 
-type NewTeam = Omit<RaceTeam, 'position' | 'comeback' | 'levelUses'>;
+type NewTeam = Omit<RaceTeam, 'position' | 'comeback' | 'levelUses' | 'lifelinesUsed'>;
 
 export function createRace(
   teams: [NewTeam, NewTeam],
@@ -89,8 +108,8 @@ export function createRace(
   return {
     laneLength,
     teams: [
-      { ...teams[0], position: 0, comeback: 'locked', levelUses: { ...NO_USES } },
-      { ...teams[1], position: 0, comeback: 'locked', levelUses: { ...NO_USES } },
+      { ...teams[0], position: 0, comeback: 'locked', levelUses: { ...NO_USES }, lifelinesUsed: [] },
+      { ...teams[1], position: 0, comeback: 'locked', levelUses: { ...NO_USES }, lifelinesUsed: [] },
     ],
     turn: 0,
     phase: 'pick',
@@ -121,7 +140,7 @@ export function startQuestion(
     teams,
     phase: 'question',
     usedQuestionIds: [...s.usedQuestionIds, q.questionId],
-    pending: { ...q, isComeback, owner: s.turn, answering: s.turn },
+    pending: { ...q, isComeback, owner: s.turn, answering: s.turn, twoAnswers: false, extraSeconds: 0 },
     lastMove: null,
   };
 }
@@ -136,14 +155,54 @@ export function markCorrect(s: RaceState): RaceState {
 export function markWrong(s: RaceState): RaceState {
   if (!s.pending) return s;
   if (s.phase === 'question') {
+    // After "pick from two answers" the other answer is plainly the right one: no steal.
+    if (s.pending.twoAnswers) return endTurn(s);
     // The stealing team uses one pick of this level too (if it has one left; it may always steal).
     const stealer = other(s.pending.owner);
     const teams = [...s.teams] as [RaceTeam, RaceTeam];
     teams[stealer] = spendPick(teams[stealer], s.pending.points);
-    return { ...s, teams, phase: 'steal', pending: { ...s.pending, answering: stealer } };
+    // The steal is a fresh go at the question: extra time bought by the first team does not carry over.
+    return { ...s, teams, phase: 'steal', pending: { ...s.pending, answering: stealer, extraSeconds: 0 } };
   }
   if (s.phase === 'steal') return endTurn(s);
   return s;
+}
+
+/** The answering team spends a lifeline, if a question is open and the team still has it. */
+function spendLifeline(s: RaceState, kind: Lifeline): [RaceTeam, RaceTeam] | null {
+  if ((s.phase !== 'question' && s.phase !== 'steal') || !s.pending) return null;
+  const who = s.pending.answering;
+  if (!hasLifeline(s.teams[who], kind)) return null;
+  const teams = [...s.teams] as [RaceTeam, RaceTeam];
+  teams[who] = { ...teams[who], lifelinesUsed: [...(teams[who].lifelinesUsed ?? []), kind] };
+  return teams;
+}
+
+/** "Pick from two answers" or "extra time", used by the team answering right now. */
+export function playLifeline(s: RaceState, kind: 'two' | 'time'): RaceState {
+  const teams = spendLifeline(s, kind);
+  if (!teams || !s.pending) return s;
+  const pending =
+    kind === 'two'
+      ? { ...s.pending, twoAnswers: true }
+      : { ...s.pending, extraSeconds: s.pending.extraSeconds + EXTRA_SECONDS };
+  return { ...s, teams, pending };
+}
+
+/**
+ * "Change the question": the open question is replaced by another one with the same category
+ * and points. It does not use another pick of that level, and the new question starts clean.
+ */
+export function swapQuestion(s: RaceState, questionId: string): RaceState {
+  if (s.usedQuestionIds.includes(questionId)) return s;
+  const teams = spendLifeline(s, 'swap');
+  if (!teams || !s.pending) return s;
+  return {
+    ...s,
+    teams,
+    usedQuestionIds: [...s.usedQuestionIds, questionId],
+    pending: { ...s.pending, questionId, twoAnswers: false, extraSeconds: 0 },
+  };
 }
 
 /** The scoring team moves its own swimmer forward or pushes the rival back. */

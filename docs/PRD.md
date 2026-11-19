@@ -25,6 +25,10 @@ Friends and families want a fun Arabic quiz game they can play together on one p
 9. **Winning**: the first swimmer to reach the finish (no exact landing needed) raises the flag and wins. The winning swimmer stands up in the water, celebrates and waves.
 10. **No repeated questions**: an account never gets the same question twice. If an account has used every question in a category, that category shows as finished.
 11. **Buttons**: play again (same teams, pick categories again), change teams, end game. In the pause menu and on the winner screen.
+12. **Lifelines**: each team has three, and can use **each one once per game**, on a question it is answering (its own turn or a steal), before the answer is revealed and before time runs out:
+    - **Pick from two answers**: the card shows the right answer and one believable wrong answer; the team picks one. A wrong pick **cannot be stolen** (the other answer would give it away): the turn simply passes.
+    - **Extra time**: 30 more seconds for this question (not offered when the question has no timer).
+    - **Change the question**: another question with the same category and points. It does not use another pick of that level, and the new question starts with a fresh timer.
 
 ## Pricing
 - Demo: free, no account, short lane (10 steps), fixed sample questions.

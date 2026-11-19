@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { levelsLeft, MoveKind, Points, TeamIdx } from './engine';
-import { Category, DEMO_CATEGORIES, DEMO_LANE_LENGTH, DEMO_QUESTIONS, REAL_LANE_LENGTH } from './demo-questions';
+import { levelsLeft, Lifeline, MoveKind, Points, TeamIdx } from './engine';
+import { Category, DEMO_CATEGORIES, DEMO_LANE_LENGTH, DEMO_QUESTIONS, Question, REAL_LANE_LENGTH } from './demo-questions';
 import {
   askErrorScope,
   canUndo,
@@ -17,6 +17,7 @@ import {
 } from './game-reducer';
 import { useAuth } from '@/lib/auth';
 import { reportError } from '@/lib/monitoring';
+import { preloadPicture } from '@/lib/preload-picture';
 import {
   drawQuestion,
   fetchCategories,
@@ -65,6 +66,11 @@ interface GameApi {
   askError: string | null;
   /** Hide the last "ask" error, e.g. when the team picks another category or difficulty. */
   clearAskError: () => void;
+  /**
+   * The answering team uses a lifeline on the open question (once per team per game).
+   * "swap" fetches another question: 'empty' when there is none left with that category and points.
+   */
+  lifeline: (kind: Lifeline) => Promise<AskResult>;
   correct: () => void;
   wrong: () => void;
   choose: (kind: MoveKind) => void;
@@ -168,6 +174,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const remaining = (categoryId: string, points: Points) =>
       real ? (catalog.left[key(categoryId, points)] ?? 0) : pool(categoryId, points).length;
 
+    /** Real games: one unseen question from the server (null when none are left), with its picture on the way. */
+    const drawOne = async (gameId: string, categoryId: string, points: Points): Promise<Question | null> => {
+      const q = await drawQuestion(gameId, categoryId, points);
+      const k = key(categoryId, points);
+      if (!q) {
+        setCatalog((c) => ({ ...c, left: { ...c.left, [k]: 0 } }));
+        return null;
+      }
+      setCatalog((c) => ({ ...c, left: { ...c.left, [k]: Math.max(0, (c.left[k] ?? 1) - 1) } }));
+      const imageUri = questionImageUrl(q.image_path);
+      const question: Question = {
+        id: String(q.question_id),
+        categoryId,
+        points,
+        q: q.question,
+        a: q.answer,
+        ...(q.wrong_answer ? { w: q.wrong_answer } : {}),
+        ...(imageUri ? { image: { kind: q.image_path!.endsWith('.svg') ? 'svg' : 'png', uri: imageUri } } : {}),
+      };
+      // Give the picture a short head start, so it is usually there when the card opens.
+      await preloadPicture(question.image);
+      return question;
+    };
+
     return {
       state,
       categories,
@@ -237,7 +267,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       askError,
       ask: async (categoryId, points, isComeback = false) => {
         setAskError(null);
-        // This team has used this level up (easy 2, medium 4, hard 4): don't use up a question for nothing.
+        // This team has used this level up (see LEVEL_LIMITS): don't use up a question for nothing.
         const race = state.race;
         if (race && !isComeback && levelsLeft(race.teams[race.turn], points) === 0) {
           setAskError('استخدمتوا كل مرّاتكم في هذه النقاط. اختاروا غيرها.');
@@ -253,27 +283,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         if (!state.gameId || asking) return 'error';
         setAsking(true);
         try {
-          const q = await drawQuestion(state.gameId, categoryId, points);
-          const k = key(categoryId, points);
-          if (!q) {
-            setCatalog((c) => ({ ...c, left: { ...c.left, [k]: 0 } }));
+          const question = await drawOne(state.gameId, categoryId, points);
+          if (!question) {
             setAskError('خلصت أسئلة هذه النقاط. اختاروا غيرها.');
             return 'empty';
           }
-          setCatalog((c) => ({ ...c, left: { ...c.left, [k]: Math.max(0, (c.left[k] ?? 1) - 1) } }));
-          const imageUri = questionImageUrl(q.image_path);
-          dispatch({
-            type: 'ask',
-            question: {
-              id: String(q.question_id),
-              categoryId,
-              points,
-              q: q.question,
-              a: q.answer,
-              ...(imageUri ? { image: { kind: q.image_path!.endsWith('.svg') ? 'svg' : 'png', uri: imageUri } } : {}),
-            },
-            isComeback,
-          });
+          dispatch({ type: 'ask', question, isComeback });
           return 'ok';
         } catch (e) {
           reportError(e, 'draw_question');
@@ -284,6 +299,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       },
       clearAskError: () => setAskError(null),
+      lifeline: async (kind) => {
+        const pending = state.race?.pending;
+        const open = state.question;
+        if (!pending || !open) return 'error';
+        if (kind !== 'swap') {
+          dispatch({ type: 'lifeline', kind });
+          return 'ok';
+        }
+        // Change the question: another one with the same category and points.
+        if (!real) {
+          const options = pool(pending.categoryId, pending.points).filter((q) => q.id !== open.id);
+          if (options.length === 0) return 'empty';
+          dispatch({ type: 'swap', question: options[Math.floor(Math.random() * options.length)] });
+          return 'ok';
+        }
+        if (!state.gameId || asking) return 'error';
+        setAsking(true);
+        try {
+          const question = await drawOne(state.gameId, pending.categoryId, pending.points);
+          if (!question) return 'empty';
+          dispatch({ type: 'swap', question });
+          return 'ok';
+        } catch (e) {
+          reportError(e, 'draw_question');
+          return 'error';
+        } finally {
+          setAsking(false);
+        }
+      },
       correct: () => dispatch({ type: 'correct' }),
       wrong: () => dispatch({ type: 'wrong' }),
       choose: (kind) => dispatch({ type: 'choose', kind }),

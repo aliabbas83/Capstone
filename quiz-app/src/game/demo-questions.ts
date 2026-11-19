@@ -16,6 +16,8 @@ export interface Question {
   points: Points;
   q: string;
   a: string;
+  /** A believable wrong answer, shown beside the right one by the "pick from two answers" lifeline. */
+  w?: string;
   image?: QuestionImage;
 }
 
@@ -163,27 +165,59 @@ const RAW: Record<string, Raw[]> = {
   ],
 };
 
-/** Demo flag questions: the pictures are bundled with the app (flagcdn.com, public domain). */
-const FLAGS: [Points, string, number][] = [
-  [2, 'الكويت', require('../../assets/flags/kw.png')],
-  [2, 'اليابان', require('../../assets/flags/jp.png')],
-  [3, 'كندا', require('../../assets/flags/ca.png')],
-  [3, 'البرازيل', require('../../assets/flags/br.png')],
-  [4, 'كوريا الجنوبية', require('../../assets/flags/kr.png')],
-  [4, 'اليونان', require('../../assets/flags/gr.png')],
-  [5, 'نيبال', require('../../assets/flags/np.png')],
+/**
+ * One wrong answer for each question above, in the same order (for "pick from two answers").
+ * Each is believable but clearly not the right answer.
+ */
+const WRONG: Record<string, string[]> = {
+  general: ['8 ألوان', 'زحل', 'اليوان', '6 قارات', 'الأكسجين', '7 لاعبين', 'الياقوت'],
+  geo: ['أفريقيا', 'المحيط الأطلسي', 'نهر الأمازون', 'مصر', 'موناكو', 'روسيا', 'جبل كينيا'],
+  history: ['المدينة المنورة', 'الحضارة البابلية', '1972', 'موسى بن نصير', 'الدولة الأموية', '1991', '1971'],
+  animals: ['الفيل الأفريقي', '6 أرجل', 'الحصان', 'الغزال', 'قلبان', 'الببغاء', 'السنجاب الطائر'],
+  tech: ['سامسونج', 'ياهو', 'ستيف جوبز', '2005', 'وحدة التخزين المركزية', 'جافا', '16 بت'],
+  arabic: ['كتابات', 'الكرم', '26 حرفاً', 'نملة', 'حافظ إبراهيم', 'الراء', 'أبو العلاء المعري'],
+  capitals: ['مرسيليا', 'أوساكا', 'تورنتو', 'سيدني', 'ألماتي', 'لاغوس', 'أوكلاند'],
+  riddles: ['النار', 'الساعة', 'الشمعة', '6 سنوات', '100 دقيقة', 'أخوه', 'الفحم'],
+  kuwait: ['الريال الكويتي', 'المرجان', 'جزيرة فيلكا', '26 فبراير', 'جزيرة وربة', 'برج التحرير', 'السنبوك'],
+  football: ['الصفراء', 'الإمارات', '80 دقيقة', '12 متراً', 'ألمانيا (4 مرات)', 'إيطاليا', 'السعودية'],
+  prophets: [
+    'إبراهيم عليه السلام',
+    'يوسف عليه السلام',
+    'موسى عليه السلام',
+    'عيسى عليه السلام',
+    'داود عليه السلام',
+    'سليمان عليه السلام',
+    'قوم ثمود',
+  ],
+  medicine: ['الرئة', 'فيتامين ج', '28 سناً', 'الكبد', 'كريات الدم البيضاء', 'عظمة المطرقة', 'الكبد'],
+  cars: ['الأصفر', 'كوريا الجنوبية', 'ألمانيا', 'دواسة البنزين', 'هنري فورد', 'فورد موستانغ', 'بولندا'],
+};
+
+/**
+ * Demo flag questions: the pictures are bundled with the app (flagcdn.com, public domain).
+ * Each row: points, the country, a wrong country with a similar-looking flag, the picture.
+ */
+const FLAGS: [Points, string, string, number][] = [
+  [2, 'الكويت', 'الأردن', require('../../assets/flags/kw.png')],
+  [2, 'اليابان', 'كوريا الجنوبية', require('../../assets/flags/jp.png')],
+  [3, 'كندا', 'سويسرا', require('../../assets/flags/ca.png')],
+  [3, 'البرازيل', 'جامايكا', require('../../assets/flags/br.png')],
+  [4, 'كوريا الجنوبية', 'اليابان', require('../../assets/flags/kr.png')],
+  [4, 'اليونان', 'فنلندا', require('../../assets/flags/gr.png')],
+  [5, 'نيبال', 'بوتان', require('../../assets/flags/np.png')],
 ];
 
 export const DEMO_QUESTIONS: Question[] = [
   ...Object.entries(RAW).flatMap(([categoryId, rows]) =>
-    rows.map(([points, q, a], i) => ({ id: `demo-${categoryId}-${i}`, categoryId, points, q, a })),
+    rows.map(([points, q, a], i) => ({ id: `demo-${categoryId}-${i}`, categoryId, points, q, a, w: WRONG[categoryId]?.[i] })),
   ),
-  ...FLAGS.map(([points, a, source], i) => ({
+  ...FLAGS.map(([points, a, w, source], i) => ({
     id: `demo-flags-${i}`,
     categoryId: 'flags',
     points,
     q: 'لمن هذا العلم؟',
     a,
+    w,
     image: { kind: 'png' as const, source },
   })),
 ];

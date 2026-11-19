@@ -1,15 +1,16 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SvgUri } from 'react-native-svg';
-import { LEVEL_LIMITS, levelsLeft, other, RaceState, STEAL_SECONDS, TeamIdx, type Points } from '@/game/engine';
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { hasLifeline, LEVEL_LIMITS, levelsLeft, LIFELINES, other, RaceState, STEAL_SECONDS, TeamIdx, type Lifeline, type Points } from '@/game/engine';
+import { LIFELINE_HINTS, LIFELINE_LABELS, twoChoices } from '@/game/lifelines';
 import { LEVELS, timesLabel } from '@/game/levels';
-import type { Category, Question, QuestionImage } from '@/game/demo-questions';
+import type { Category, Question } from '@/game/demo-questions';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { play } from '@/lib/sound';
 import { Confetti, TimerRing } from './effects';
 import { SoundToggles } from './sound-toggles';
-import { ArrowDownIcon, ArrowUpIcon, BookIcon, CheckIcon, CrossIcon, ExpandIcon } from './icons';
+import { ArrowDownIcon, ArrowUpIcon, BookIcon, CheckIcon, CrossIcon } from './icons';
 import { MascotBadge } from './mascot-badge';
+import { QuestionPicture } from './question-picture';
 import { Flag, SwimmerCheer } from './race-art';
 import { FirstTimeTip } from './tip';
 import { Button, Card, haptic, PopIn, Row, T } from './ui';
@@ -37,8 +38,10 @@ export function QuestionOverlay({
   timerSeconds,
   paused = false,
   startRevealed = false,
+  canSwap = false,
   onCorrect,
   onWrong,
+  onLifeline,
 }: {
   race: RaceState;
   question: Question;
@@ -52,6 +55,10 @@ export function QuestionOverlay({
   onCorrect: () => void;
   /** `revealed` says whether the answer was on screen, so an undo can bring the card back the same way. */
   onWrong: (revealed: boolean) => void;
+  /** True when another question with the same category and points exists (for "change the question"). */
+  canSwap?: boolean;
+  /** The answering team uses a lifeline. Resolves 'empty' when there is no other question to swap in. */
+  onLifeline: (kind: Lifeline) => Promise<'ok' | 'empty' | 'error'>;
 }) {
   const p = race.pending!;
   const stealing = race.phase === 'steal';
@@ -63,6 +70,38 @@ export function QuestionOverlay({
   const still = useReduceMotion();
   const answering = p.answering;
   const color = colors.team[answering];
+  const team = race.teams[answering];
+
+  // Lifelines of the team answering now (each one once per game).
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const can: Record<Lifeline, boolean> = {
+    two: hasLifeline(team, 'two') && twoChoices(question) !== null,
+    time: hasLifeline(team, 'time') && timed,
+    swap: hasLifeline(team, 'swap') && canSwap,
+  };
+  const lifeline = async (kind: Lifeline) => {
+    if (busy) return;
+    haptic();
+    setNote(null);
+    setBusy(true);
+    const result = await onLifeline(kind);
+    setBusy(false);
+    if (result === 'ok') play('chime');
+    else setNote(result === 'empty' ? 'ما فيه سؤال ثاني بنفس الفئة والنقاط.' : 'ما قدرنا نغيّر السؤال. حاولوا مرة ثانية.');
+  };
+
+  // "Pick from two answers": the two choices, and the one the team went for.
+  const choices = p.twoAnswers ? twoChoices(question) : null;
+  const [picked, setPicked] = useState<string | null>(null);
+  const pickedRight = picked === question.a;
+
+  // "Extra time": add the new seconds to the clock once (state adjusted during render).
+  const [bonus, setBonus] = useState(p.extraSeconds);
+  if (p.extraSeconds !== bonus) {
+    setBonus(p.extraSeconds);
+    setSeconds((s) => s + (p.extraSeconds - bonus));
+  }
 
   useEffect(() => {
     if (still) return flip.setValue(1);
@@ -129,7 +168,7 @@ export function QuestionOverlay({
                   </T>
                 ) : null}
               </View>
-              {timed ? <TimerRing seconds={seconds} total={total} color={color} size={64} /> : null}
+              {timed ? <TimerRing seconds={seconds} total={total + p.extraSeconds} color={color} size={64} /> : null}
             </Row>
           </View>
 
@@ -143,8 +182,30 @@ export function QuestionOverlay({
 
           {timeUp ? (
             <T weight="bold" size={15} center color={colors.redDeep} accessibilityLiveRegion="assertive">
-              {stealing ? 'انتهى الوقت! اكشف الإجابة' : `انتهى الوقت! الفرصة الآن لـ ${rivalName}`}
+              {stealing || p.twoAnswers ? 'انتهى الوقت! اكشف الإجابة' : `انتهى الوقت! الفرصة الآن لـ ${rivalName}`}
             </T>
+          ) : null}
+
+          {choices && !revealed && !timeUp ? (
+            <View style={{ gap: 8 }}>
+              <T size={14} weight="bold" center color={colors.inkSoft}>
+                واحد من هالجوابين صح. اختاروا:
+              </T>
+              {choices.map((c) => (
+                <Button
+                  key={c}
+                  label={c}
+                  tone="white"
+                  size="md"
+                  accessibilityHint="يكشف الإجابة ويبيّن إذا اختياركم صح"
+                  onPress={() => {
+                    haptic();
+                    setPicked(c);
+                    setRevealed(true);
+                  }}
+                />
+              ))}
+            </View>
           ) : null}
 
           {revealed ? (
@@ -158,7 +219,34 @@ export function QuestionOverlay({
             </PopIn>
           ) : null}
 
-          {revealed ? (
+          {revealed && picked !== null ? (
+            <View style={{ gap: 10 }}>
+              <T size={15} weight="bold" center color={pickedRight ? colors.greenDeep : colors.redDeep} accessibilityLiveRegion="polite">
+                {pickedRight ? `اختاروا «${picked}»: إجابة صحيحة!` : `اختاروا «${picked}»: إجابة خاطئة`}
+              </T>
+              {pickedRight ? (
+                <Button
+                  label="صح، كمّلوا"
+                  tone="green"
+                  icon={<CheckIcon />}
+                  onPress={() => {
+                    haptic('success');
+                    onCorrect();
+                  }}
+                />
+              ) : (
+                <Button
+                  label="خطأ، كمّلوا"
+                  tone="red"
+                  icon={<CrossIcon />}
+                  onPress={() => {
+                    haptic('warning');
+                    onWrong(true);
+                  }}
+                />
+              )}
+            </View>
+          ) : revealed ? (
             <View style={{ gap: 10 }}>
               <T size={14} center color={colors.inkSoft}>
                 هل جاوب {teamName(race, answering)} صح؟
@@ -174,7 +262,7 @@ export function QuestionOverlay({
                 }} />
               </Row>
             </View>
-          ) : timeUp && !stealing ? (
+          ) : timeUp && !stealing && !p.twoAnswers ? (
             <View style={{ gap: 10 }}>
               <Button label={`فرصة سرقة لـ ${rivalName}`} onPress={toSteal} />
               <Button label="اكشف الإجابة" tone="white" size="md" onPress={() => setRevealed(true)} />
@@ -182,7 +270,7 @@ export function QuestionOverlay({
           ) : (
             <View style={{ gap: 10 }}>
               <Button label="اكشف الإجابة" onPress={() => setRevealed(true)} />
-              {!stealing ? (
+              {!stealing && !p.twoAnswers ? (
                 <Button
                   label={`ما عرفوا؟ السرقة لـ ${rivalName}`}
                   tone="white"
@@ -193,6 +281,53 @@ export function QuestionOverlay({
               ) : null}
             </View>
           )}
+          {!revealed && !timeUp ? (
+            <View style={styles.lifelines}>
+              <T size={13} weight="bold" center color={colors.inkSoft}>
+                مساعدات {teamName(race, answering)} (كل وحدة مرة بالسباق)
+              </T>
+              <Row style={{ gap: 8 }}>
+                {LIFELINES.map((k) => {
+                  const used = !hasLifeline(team, k);
+                  const off = !can[k] || busy;
+                  return (
+                    <Pressable
+                      key={k}
+                      accessibilityRole="button"
+                      accessibilityLabel={used ? `${LIFELINE_LABELS[k]}، استخدمتوها` : LIFELINE_LABELS[k]}
+                      accessibilityHint={LIFELINE_HINTS[k]}
+                      accessibilityState={{ disabled: off }}
+                      disabled={off}
+                      onPress={() => lifeline(k)}
+                      style={({ pressed }) => [
+                        styles.lifeline,
+                        { borderColor: used ? colors.line : color },
+                        used && { backgroundColor: colors.cardSoft },
+                        off && !used && { opacity: 0.45 },
+                        pressed && { transform: [{ scale: 0.96 }] },
+                      ]}
+                    >
+                      <T
+                        size={13}
+                        weight="black"
+                        center
+                        color={used ? colors.muted : colors.ink}
+                        style={used ? { textDecorationLine: 'line-through' } : undefined}
+                      >
+                        {LIFELINE_LABELS[k]}
+                      </T>
+                    </Pressable>
+                  );
+                })}
+              </Row>
+              {busy ? <ActivityIndicator color={colors.ink} accessibilityLabel="جاري تجهيز السؤال" /> : null}
+              {note ? (
+                <T size={13} weight="bold" center color={colors.redDeep} accessibilityRole="alert">
+                  {note}
+                </T>
+              ) : null}
+            </View>
+          ) : null}
           {!revealed ? (
             <T size={13} center color={colors.muted}>
               المقدّم يقرأ السؤال بصوت عالي
@@ -201,84 +336,6 @@ export function QuestionOverlay({
         </Card>
       </Animated.View>
     </Backdrop>
-  );
-}
-
-/**
- * The picture of a picture question (a flag or a country's outline).
- * Shows a spinner while it loads, and a retry button if it fails, so the host is never stuck.
- */
-function PictureImage({ image, attempt, onLoad, onError }: { image: QuestionImage; attempt: number; onLoad?: () => void; onError?: () => void }) {
-  if ('source' in image)
-    return <Image key={attempt} source={image.source} style={styles.pictureImg} resizeMode="contain" onLoad={onLoad} onError={onError} />;
-  if (image.kind === 'svg') return <SvgUri key={attempt} uri={image.uri} width="100%" height="100%" onLoad={onLoad} onError={onError} />;
-  return <Image key={attempt} source={{ uri: image.uri }} style={styles.pictureImg} resizeMode="contain" onLoad={onLoad} onError={onError} />;
-}
-
-function QuestionPicture({ image }: { image: QuestionImage }) {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [attempt, setAttempt] = useState(0);
-  const [big, setBig] = useState(false);
-  const onLoad = () => setStatus('ready');
-  const onError = () => setStatus('error');
-
-  return (
-    <View style={styles.picture}>
-      {status !== 'error' ? (
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          disabled={status !== 'ready'}
-          accessibilityRole="imagebutton"
-          accessibilityLabel="صورة السؤال، اضغط لتكبيرها"
-          onPress={() => setBig(true)}
-        >
-          <View style={styles.pictureInner}>
-            <PictureImage image={image} attempt={attempt} onLoad={onLoad} onError={onError} />
-          </View>
-          {status === 'ready' ? (
-            <View style={styles.expandHint} pointerEvents="none">
-              <ExpandIcon size={18} color={colors.ink} />
-            </View>
-          ) : null}
-        </Pressable>
-      ) : null}
-      <Modal visible={big} transparent animationType="fade" onRequestClose={() => setBig(false)} statusBarTranslucent>
-        <Pressable
-          style={styles.bigBackdrop}
-          accessibilityRole="button"
-          accessibilityLabel="صورة السؤال مكبّرة، اضغط للرجوع"
-          onPress={() => setBig(false)}
-        >
-          <View style={styles.bigFrame}>
-            <PictureImage image={image} attempt={attempt} />
-          </View>
-          <T size={15} weight="bold" color="#FFFFFF" center>
-            اضغط في أي مكان للرجوع
-          </T>
-        </Pressable>
-      </Modal>
-      {status === 'loading' ? (
-        <View style={styles.pictureOverlay}>
-          <ActivityIndicator color={colors.ink} accessibilityLabel="جاري تحميل الصورة" />
-        </View>
-      ) : null}
-      {status === 'error' ? (
-        <View style={[styles.pictureOverlay, { gap: 8 }]} accessibilityLiveRegion="polite">
-          <T size={14} center color={colors.redDeep}>
-            ما قدرنا نحمّل الصورة. تأكد من الاتصال.
-          </T>
-          <Button
-            label="حاول مرة ثانية"
-            tone="white"
-            size="md"
-            onPress={() => {
-              setStatus('loading');
-              setAttempt((a) => a + 1);
-            }}
-          />
-        </View>
-      ) : null}
-    </View>
   );
 }
 
@@ -673,28 +730,17 @@ const styles = StyleSheet.create({
   qCard: { gap: 14, borderWidth: 4, borderRadius: radius.xl, padding: 18 },
   pointsBadge: { backgroundColor: colors.gold, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 2 },
   answerer: { borderRadius: radius.lg, padding: 10 },
-  picture: {
-    height: 250,
-    borderRadius: radius.lg,
-    backgroundColor: '#EEF7FB',
-    overflow: 'hidden',
-  },
-  pictureInner: { flex: 1, padding: 10 },
-  pictureImg: { width: '100%', height: '100%' },
-  expandHint: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+  lifelines: { gap: 6, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 },
+  lifeline: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  bigBackdrop: { flex: 1, backgroundColor: 'rgba(6, 24, 40, 0.94)', justifyContent: 'center', padding: 16, gap: 16 },
-  bigFrame: { width: '100%', aspectRatio: 1, backgroundColor: '#EEF7FB', borderRadius: radius.lg, padding: 12 },
-  pictureOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', padding: 12 },
   answerBox: {
     backgroundColor: '#E3F9EA',
     borderRadius: radius.lg,

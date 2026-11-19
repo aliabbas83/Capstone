@@ -9,8 +9,10 @@ import {
   markWrong,
   MoveKind,
   pickCategory,
+  playLifeline,
   RaceState,
   startQuestion,
+  swapQuestion,
   TeamIdx,
   undoPick,
 } from './engine';
@@ -52,6 +54,8 @@ export type Action =
   | { type: 'correct' }
   | { type: 'wrong' }
   | { type: 'choose'; kind: MoveKind }
+  | { type: 'lifeline'; kind: 'two' | 'time' }
+  | { type: 'swap'; question: Question }
   | { type: 'undo' }
   | { type: 'playAgain' }
   | { type: 'changeTeams' };
@@ -171,6 +175,17 @@ export function gameReducer(s: StoreState, a: Action): StoreState {
       return race === s.race
         ? s
         : { ...s, ...remember(s), race, question: race.phase === 'choose' ? s.question : null };
+    }
+    // A lifeline is not a host call: it cannot be undone, and it closes the undo of the call before it.
+    case 'lifeline': {
+      if (!s.race) return s;
+      const race = playLifeline(s.race, a.kind);
+      return race === s.race ? s : { ...s, race, undo: null };
+    }
+    case 'swap': {
+      if (!s.race) return s;
+      const race = swapQuestion(s.race, a.question.id);
+      return race === s.race ? s : { ...s, race, question: a.question, undo: null, reopened: false };
     }
     case 'undo':
       if (!canUndo(s) || !s.undo) return s;
