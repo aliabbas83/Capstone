@@ -454,7 +454,6 @@ export function WinnerOverlay({
   }, []);
   return (
     <Backdrop>
-      <Confetti />
       <PopIn>
         <Card style={[styles.qCard, { borderColor: colors.gold, alignItems: 'stretch' }]}>
           <View style={{ alignItems: 'center', gap: 4 }}>

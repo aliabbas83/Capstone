@@ -7,12 +7,19 @@ import { useReduceMotion } from '@/lib/motion';
 
 const CONFETTI_COLORS = [colors.gold, colors.team[0], colors.team[1], '#22C55E', '#2EA8FF', '#FF5C93'];
 
+/**
+ * Falling confetti over the whole screen. With "Reduce Motion" on, the pieces do not fall:
+ * they are sprinkled still across the top of the screen, so the win still looks like a party.
+ */
 export function Confetti({ count = 46 }: { count?: number }) {
   const { width, height } = Dimensions.get('window');
   // Random layout is generated once, in the state initialiser (not during render).
   const [pieces] = useState(() =>
       Array.from({ length: count }).map((_, i) => ({
         x: Math.random() * width,
+        // where a piece rests when nothing moves (Reduce Motion)
+        restY: Math.random() * height * 0.55,
+        restTurn: Math.random() * 360,
         delay: Math.random() * 900,
         duration: 2200 + Math.random() * 1600,
         color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
@@ -22,12 +29,27 @@ export function Confetti({ count = 46 }: { count?: number }) {
       })),
   );
   const still = useReduceMotion();
-  if (still) return null; // the flag and trophy still show who won
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {pieces.map((p, i) => (
-        <Piece key={i} {...p} height={height} />
-      ))}
+    <View pointerEvents="none" style={StyleSheet.absoluteFill} aria-hidden>
+      {pieces.map((p, i) =>
+        still ? (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: p.x,
+              top: p.restY,
+              width: p.size,
+              height: p.round ? p.size : p.size * 0.5,
+              borderRadius: p.round ? p.size / 2 : 2,
+              backgroundColor: p.color,
+              transform: [{ rotate: `${p.restTurn}deg` }],
+            }}
+          />
+        ) : (
+          <Piece key={i} {...p} height={height} />
+        ),
+      )}
     </View>
   );
 }

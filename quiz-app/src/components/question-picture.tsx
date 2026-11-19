@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import type { QuestionImage } from '@/game/demo-questions';
+import { reportError } from '@/lib/monitoring';
 import { pictures } from '@/lib/picture-loader';
 import { colors, radius } from '@/theme';
 import { ExpandIcon } from './icons';
@@ -21,7 +22,9 @@ type Status = 'loading' | 'ready' | 'error';
  * Once the picture is showing, a later network hiccup does not take it away.
  */
 export function QuestionPicture({ image }: { image: QuestionImage }) {
-  const svgUri = 'uri' in image && image.kind === 'svg' ? image.uri : null;
+  const svgUri = image.kind === 'svg' ? image.uri : null;
+  // Pictures that are part of the app's code (the demo flags) need no download at all.
+  const builtIn = image.uri.startsWith('data:');
   const [xml, setXml] = useState<string | null>(() => (svgUri ? pictures.peek(svgUri) : null));
   const [status, setStatus] = useState<Status>(() => (svgUri && pictures.peek(svgUri) ? 'ready' : 'loading'));
   const [attempt, setAttempt] = useState(0);
@@ -54,6 +57,12 @@ export function QuestionPicture({ image }: { image: QuestionImage }) {
     return () => clearTimeout(id);
   }, [status, attempt]);
 
+  // Tell Sentry when the host actually sees the error, so the real cause can be found later.
+  useEffect(() => {
+    if (status !== 'error') return;
+    reportError(new Error(`question picture failed (${builtIn ? 'built-in' : image.kind})`), 'question_picture');
+  }, [status, builtIn, image.kind]);
+
   const onLoad = () => setStatus('ready');
   const onError = () => {
     if (status === 'ready') return;
@@ -72,11 +81,10 @@ export function QuestionPicture({ image }: { image: QuestionImage }) {
 
   const picture = (watch: boolean) => {
     if (svgUri) return xml ? <SvgXml xml={xml} width="100%" height="100%" /> : null;
-    const source = 'source' in image ? image.source : { uri: image.uri };
     return (
       <Image
         key={attempt}
-        source={source}
+        source={{ uri: image.uri }}
         style={styles.img}
         resizeMode="contain"
         onLoad={watch ? onLoad : undefined}

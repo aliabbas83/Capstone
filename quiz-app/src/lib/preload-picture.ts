@@ -8,7 +8,8 @@ import { pictures, withTimeout } from './picture-loader';
  * is slow or fails, the card opens anyway and shows its own loading / retry state.
  */
 export async function preloadPicture(image: QuestionImage | undefined, waitMs = 2500): Promise<void> {
-  if (!image || !('uri' in image)) return;
+  // A data URI is already inside the app: nothing to download.
+  if (!image || image.uri.startsWith('data:')) return;
   const load =
     image.kind === 'svg'
       ? pictures.loadSvg(image.uri)

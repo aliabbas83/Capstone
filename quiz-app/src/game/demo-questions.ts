@@ -1,3 +1,4 @@
+import { DEMO_FLAGS } from './demo-flags';
 import type { Points } from './engine';
 
 export interface Category {
@@ -7,8 +8,12 @@ export interface Category {
   color: string;
 }
 
-/** A picture shown with the question: a bundled image (demo) or a web address (server). */
-export type QuestionImage = { kind: 'png' | 'svg'; uri: string } | { kind: 'png'; source: number };
+/**
+ * A picture shown with the question: a web address (server) or a data URI that is part of the
+ * app's code (demo, see demo-flags.ts). Never a bundled image file: Expo Go downloads those
+ * from the dev server while playing, which can fail.
+ */
+export type QuestionImage = { kind: 'png' | 'svg'; uri: string };
 
 export interface Question {
   id: string;
@@ -194,31 +199,31 @@ const WRONG: Record<string, string[]> = {
 };
 
 /**
- * Demo flag questions: the pictures are bundled with the app (flagcdn.com, public domain).
+ * Demo flag questions: the pictures are part of the app's code (flagcdn.com, public domain).
  * Each row: points, the country, a wrong country with a similar-looking flag, the picture.
  */
-const FLAGS: [Points, string, string, number][] = [
-  [2, 'الكويت', 'الأردن', require('../../assets/flags/kw.png')],
-  [2, 'اليابان', 'كوريا الجنوبية', require('../../assets/flags/jp.png')],
-  [3, 'كندا', 'سويسرا', require('../../assets/flags/ca.png')],
-  [3, 'البرازيل', 'جامايكا', require('../../assets/flags/br.png')],
-  [4, 'كوريا الجنوبية', 'اليابان', require('../../assets/flags/kr.png')],
-  [4, 'اليونان', 'فنلندا', require('../../assets/flags/gr.png')],
-  [5, 'نيبال', 'بوتان', require('../../assets/flags/np.png')],
+const FLAGS: [Points, string, string, string][] = [
+  [2, 'الكويت', 'الأردن', DEMO_FLAGS.kw],
+  [2, 'اليابان', 'كوريا الجنوبية', DEMO_FLAGS.jp],
+  [3, 'كندا', 'سويسرا', DEMO_FLAGS.ca],
+  [3, 'البرازيل', 'جامايكا', DEMO_FLAGS.br],
+  [4, 'كوريا الجنوبية', 'اليابان', DEMO_FLAGS.kr],
+  [4, 'اليونان', 'فنلندا', DEMO_FLAGS.gr],
+  [5, 'نيبال', 'بوتان', DEMO_FLAGS.np],
 ];
 
 export const DEMO_QUESTIONS: Question[] = [
   ...Object.entries(RAW).flatMap(([categoryId, rows]) =>
     rows.map(([points, q, a], i) => ({ id: `demo-${categoryId}-${i}`, categoryId, points, q, a, w: WRONG[categoryId]?.[i] })),
   ),
-  ...FLAGS.map(([points, a, w, source], i) => ({
+  ...FLAGS.map(([points, a, w, uri], i) => ({
     id: `demo-flags-${i}`,
     categoryId: 'flags',
     points,
     q: 'لمن هذا العلم؟',
     a,
     w,
-    image: { kind: 'png' as const, source },
+    image: { kind: 'png' as const, uri },
   })),
 ];
 

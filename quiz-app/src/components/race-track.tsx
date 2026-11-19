@@ -3,11 +3,12 @@ import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import type { RaceState, TeamIdx } from '@/game/engine';
 import { colors, nativeDriver, radius } from '@/theme';
 import { cheerSize, FinishLine, Flag, Swimmer, SwimmerCheer, swimmerSize } from './race-art';
+import { POOL_WATER } from './pool-water';
 import { T } from './ui';
 import { useReduceMotion } from '@/lib/motion';
 
-/** Pool water seen from above (generated artwork, 1280 × 720). */
-const POOL = require('../../assets/pool/water.jpg');
+/** Pool water seen from above. Part of the app's code, so the phone never has to download it. */
+const POOL = { uri: POOL_WATER };
 
 const SQUARE = 11;
 /** The finish strip on the left wall of each lane. */

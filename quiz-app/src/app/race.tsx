@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PauseIcon, UndoIcon } from '@/components/icons';
+import { Confetti } from '@/components/effects';
 import { MascotBadge } from '@/components/mascot-badge';
 import { ChooseOverlay, PauseMenu, PickPanel, QuestionOverlay, WinnerOverlay } from '@/components/race-overlays';
 import { RaceTrack } from '@/components/race-track';
@@ -175,6 +176,8 @@ export default function Race() {
       {finished && winnerFor === race ? (
         <WinnerOverlay race={race} onPlayAgain={playAgain} onChangeTeams={changeTeams} onEnd={end} ending={ending} />
       ) : null}
+      {/* Confetti from the moment a team wins: over the pool while the swimmer waves, then over the card. */}
+      {finished ? <Confetti count={70} /> : null}
       {game.canUndo && lastCall && !paused ? (
         <UndoBar key={undoStamp} label={`تراجع عن ${CALL_LABELS[lastCall]}`} onUndo={game.undo} />
       ) : null}
