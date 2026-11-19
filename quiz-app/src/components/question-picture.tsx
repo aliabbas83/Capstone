@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 import type { QuestionImage } from '@/game/demo-questions';
+import { APP_BUILD } from '@/lib/build';
 import { reportError } from '@/lib/monitoring';
 import { pictures } from '@/lib/picture-loader';
 import { colors, radius } from '@/theme';
@@ -30,6 +31,8 @@ export function QuestionPicture({ image }: { image: QuestionImage }) {
   const [attempt, setAttempt] = useState(0);
   const [big, setBig] = useState(false);
   const quiet = useRef(0);
+  // How it failed, for the small code under the error: E = the picture reported an error, T = it never answered.
+  const [reason, setReason] = useState<'E' | 'T'>('E');
 
   // Maps: one download, shared with the preload, with its own retries.
   useEffect(() => {
@@ -41,8 +44,10 @@ export function QuestionPicture({ image }: { image: QuestionImage }) {
         setXml(text);
         setStatus('ready');
       },
-      () => {
-        if (alive) setStatus('error');
+      (e) => {
+        if (!alive) return;
+        setReason(e instanceof Error && e.message === 'timeout' ? 'T' : 'E');
+        setStatus('error');
       },
     );
     return () => {
@@ -53,7 +58,10 @@ export function QuestionPicture({ image }: { image: QuestionImage }) {
   // Safety net: a load that never answers becomes an error with a retry button.
   useEffect(() => {
     if (status !== 'loading') return;
-    const id = setTimeout(() => setStatus((s) => (s === 'loading' ? 'error' : s)), LOAD_LIMIT_MS);
+    const id = setTimeout(() => {
+      setReason('T');
+      setStatus((s) => (s === 'loading' ? 'error' : s));
+    }, LOAD_LIMIT_MS);
     return () => clearTimeout(id);
   }, [status, attempt]);
 
@@ -71,6 +79,7 @@ export function QuestionPicture({ image }: { image: QuestionImage }) {
       setAttempt((a) => a + 1);
       return;
     }
+    setReason('E');
     setStatus('error');
   };
   const retry = () => {
@@ -135,6 +144,10 @@ export function QuestionPicture({ image }: { image: QuestionImage }) {
             ما قدرنا نحمّل الصورة. تأكد من الاتصال.
           </T>
           <Button label="حاول مرة ثانية" tone="white" size="md" onPress={retry} />
+          {/* A short code for support: where the picture comes from, how it failed, and the app version. */}
+          <T size={11} center color={colors.muted}>
+            {`${builtIn ? 'B' : image.kind === 'svg' ? 'S' : 'P'}${reason} · ${APP_BUILD}`}
+          </T>
         </View>
       ) : null}
     </View>

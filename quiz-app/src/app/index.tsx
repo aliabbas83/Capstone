@@ -8,6 +8,7 @@ import { Button, FadeIn, PopIn, Row, Screen, T } from '@/components/ui';
 import { REAL_LANE_LENGTH } from '@/game/demo-questions';
 import { useGame } from '@/game/game-store';
 import { useAuth } from '@/lib/auth';
+import { APP_BUILD } from '@/lib/build';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { useReduceMotion } from '@/lib/motion';
 
@@ -140,6 +141,9 @@ export default function Home() {
       >
         <T size={12} center color={colors.ink}>
           بعض الأسئلة مترجمة من Open Trivia DB · CC BY-SA 4.0
+        </T>
+        <T size={11} center color={colors.ink} accessibilityLabel={`الإصدار ${APP_BUILD}`}>
+          الإصدار {APP_BUILD}
         </T>
       </Pressable>
     </Screen>
