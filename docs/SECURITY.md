@@ -107,3 +107,4 @@ Checked, no change needed:
 - **Nothing new is secret on the device.** The app already receives the right answer with each question, because the host reveals it. The wrong answer is sent with it and is no more sensitive.
 - **Once per team is an app rule.** The server cannot tell the two teams on one phone apart, so the lifeline limit is enforced in the app, like the level limits. "Change the question" draws through `draw_question`, so the server's own limits (never a repeated question, 100 questions per game, 6 hours) still apply.
 - **Picture downloads** only ever use the address built from a server-given hex name (`questionImageUrl`), and a reply that is not an SVG is refused before it is drawn.
+- **Daily job.** `seed-wrong-answers-daily` (pg_cron, 00:20 UTC) calls the same function with the Vault token, at most 120 questions per run, so the daily AI cost stays small and bounded.
