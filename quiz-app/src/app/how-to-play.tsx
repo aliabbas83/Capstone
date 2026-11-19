@@ -3,19 +3,20 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { BackIcon, UndoIcon } from '@/components/icons';
 import { Button, Card, IconButton, Row, Screen, T } from '@/components/ui';
 import { COMEBACK_POINTS, COMEBACK_TRIGGER, LEVEL_LIMITS, STEAL_SECONDS } from '@/game/engine';
+import { levelLabel, timesLabel } from '@/game/levels';
 import { CATEGORIES_PER_TEAM, DEMO_LANE_LENGTH, REAL_LANE_LENGTH } from '@/game/demo-questions';
 import { colors, radius } from '@/theme';
 
 /** The whole game in eight short steps: something the host can read out in about 30 seconds. */
 const STEPS = [
   `الفريقين يختارون ${CATEGORIES_PER_TEAM * 2} فئات بالتناوب، ${CATEGORIES_PER_TEAM} لكل فريق.`,
-  'في دوركم اختاروا أي فئة منها، وبعدها الصعوبة: سهل +2، متوسط +3، صعب +4.',
-  `لكل فريق: سهل ${LEVEL_LIMITS[2]} مرّات، متوسط ${LEVEL_LIMITS[3]}، صعب ${LEVEL_LIMITS[4]}. السرقة تُحسب من مرّاتكم، ولما تخلصونها كلها تتجدد.`,
+  `في دوركم اختاروا أي فئة منها، وبعدها النقاط: ${levelLabel(2)}، ${levelLabel(3)} أو ${levelLabel(4)}. كل ما زادت النقاط صار السؤال أصعب.`,
+  `لكل فريق: ${levelLabel(2)} ${timesLabel(LEVEL_LIMITS[2])}، ${levelLabel(3)} ${timesLabel(LEVEL_LIMITS[3])}، ${levelLabel(4)} ${timesLabel(LEVEL_LIMITS[4])}. السرقة تُحسب من مرّاتكم، ولما تخلصونها كلها تتجدد.`,
   'المقدّم يقرأ السؤال بصوت عالي، يكشف الإجابة، ويضغط صح أو خطأ.',
-  'جاوبتوا صح؟ تقدّموا بقاربكم، أو رجّعوا قارب الخصم نفس الخطوات.',
+  'جاوبتوا صح؟ تقدّموا بسبّاحكم، أو رجّعوا سبّاح الخصم نفس الخطوات.',
   `غلطتوا أو خلص الوقت؟ الفريق الثاني عنده ${STEAL_SECONDS} ثانية يسرق السؤال.`,
   `إذا صار الخصم على بعد ${COMEBACK_TRIGGER} خطوات أو أقل من النهاية، ينفتح لكم سؤال الإنقاذ +${COMEBACK_POINTS} مرة وحدة.`,
-  `أول قارب يوصل خط النهاية ويرفع العلم يفوز. السباق ${REAL_LANE_LENGTH} خطوة، والتجربة المجانية ${DEMO_LANE_LENGTH}.`,
+  `أول سبّاح يوصل خط النهاية ويرفع العلم يفوز. السباق ${REAL_LANE_LENGTH} خطوة، والتجربة المجانية ${DEMO_LANE_LENGTH}.`,
 ];
 
 export default function HowToPlay() {

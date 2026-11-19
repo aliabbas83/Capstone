@@ -20,7 +20,7 @@
 
 **Say:**
 "This is Jawla — جولة. It is an Arabic quiz race for friends and families on one phone.
-Two teams, two boats. Answer right, and you decide: move your boat forward, or push the other boat back.
+Two teams, two swimmers. Answer right, and you decide: move your swimmer forward, or push the other swimmer back.
 It is built with React Native and Expo, Supabase for the backend, and MyFatoorah for payment."
 
 ### 0:45 – 2:30 · Free demo (no account, works offline)
@@ -28,9 +28,9 @@ It is built with React Native and Expo, Supabase for the backend, and MyFatoorah
 **Show:**
 1. Tap the demo button. Enter two team names. Point out the mascot suggestion from the name.
 2. Categories: teams take turns, 4 each. A taken category is locked for the other team.
-3. Race screen: the sea, two lanes, buoys, the flag.
-4. Pick a category and level (2 / 3 / 4 points). Show the timer, then **reveal answer**.
-5. Tap that the team was **right** → show **move forward** vs **push back**. Pick push to show the other boat going back.
+3. Race screen: the pool, two sideways lanes, the swimmers, the flag.
+4. Pick a category and the points (2 / 3 / 4). Show the timer, then **reveal answer**.
+5. Tap that the team was **right** → show **move forward** vs **push back**. Pick push to show the other swimmer going back.
 6. Next question: tap **wrong** → the other team gets a 15-second **steal**.
 7. Open the **pause menu**: play again, change teams, end, sound switches.
 

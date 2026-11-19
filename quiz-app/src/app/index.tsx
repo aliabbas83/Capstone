@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Animated, Easing, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { BookIcon, CheckIcon } from '@/components/icons';
-import { Boat, Flag } from '@/components/race-art';
+import { Flag, Swimmer } from '@/components/race-art';
 import { SoundToggles } from '@/components/sound-toggles';
 import { Button, FadeIn, PopIn, Row, Screen, T } from '@/components/ui';
 import { REAL_LANE_LENGTH } from '@/game/demo-questions';
@@ -30,7 +30,7 @@ export default function Home() {
     loop.start();
     return () => loop.stop();
   }, [bob, still]);
-  const translateY = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
+  const drift = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
 
   return (
     <Screen style={styles.page}>
@@ -39,7 +39,7 @@ export default function Home() {
           جولة
         </T>
         <T size={18} center color={colors.ink}>
-          سباق الأسئلة بين الفرق — جاوب صح وجدّف لخط النهاية!
+          سباق الأسئلة بين الفرق — جاوب صح واسبح لخط النهاية!
         </T>
       </FadeIn>
 
@@ -64,16 +64,19 @@ export default function Home() {
       {afterDemo ? (
         <DemoDoneCard signedIn={!!session} />
       ) : (
-      <View style={styles.scene} accessible accessibilityLabel="قاربان يتسابقان نحو العلم">
-        <Row style={{ gap: 40, alignItems: 'flex-end' }}>
-          <Animated.View style={{ transform: [{ translateY }] }}>
-            <Boat color={colors.team[0]} mascotId="falcon" photoUri={null} width={58} />
-          </Animated.View>
+      <View style={styles.scene} accessible accessibilityLabel="سبّاحان يتسابقان نحو العلم">
+        {/* The flag is on the left: the swimmers race towards it, right to left. */}
+        <View style={{ flexDirection: 'row', gap: 18, alignItems: 'center' }}>
           <Flag color={colors.gold} raised size={56} />
-          <Animated.View style={{ transform: [{ translateY: Animated.multiply(translateY, -1) }] }}>
-            <Boat color={colors.team[1]} mascotId="tiger" photoUri={null} width={58} />
-          </Animated.View>
-        </Row>
+          <View style={{ gap: 14 }}>
+            <Animated.View style={{ transform: [{ translateX: drift }] }}>
+              <Swimmer color={colors.team[0]} mascotId="falcon" photoUri={null} size={42} swimming />
+            </Animated.View>
+            <Animated.View style={{ marginLeft: 34, transform: [{ translateX: Animated.multiply(drift, -1) }] }}>
+              <Swimmer color={colors.team[1]} mascotId="tiger" photoUri={null} size={42} swimming />
+            </Animated.View>
+          </View>
+        </View>
       </View>
       )}
 

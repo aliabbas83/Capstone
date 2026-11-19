@@ -21,7 +21,7 @@ const CALL_LABELS: Record<Call, string> = {
   wrong: '«خطأ»',
   toSteal: 'نقل السؤال للسرقة',
   forward: 'التقدّم',
-  push: 'إرجاع القارب',
+  push: 'إرجاع السبّاح',
 };
 const UNDO_SECONDS = 6;
 const BANNER_MS = 1600;
@@ -68,12 +68,12 @@ export default function Race() {
     return () => clearTimeout(t);
   }, [bannerId, still]);
 
-  // Let the last boat move and the lane flag rise before the winner card covers the sea.
+  // Let the last swimmer arrive, raise the flag and wave before the winner card covers the pool.
   const finished = race?.phase === 'finished';
   const [winnerFor, setWinnerFor] = useState<typeof race>(null);
   useEffect(() => {
     if (!finished) return;
-    const id = setTimeout(() => setWinnerFor(race), still ? 300 : 1400);
+    const id = setTimeout(() => setWinnerFor(race), still ? 600 : 2400);
     return () => clearTimeout(id);
   }, [finished, race, still]);
 

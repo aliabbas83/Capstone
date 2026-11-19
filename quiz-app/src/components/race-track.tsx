@@ -1,67 +1,72 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { RaceState, TeamIdx } from '@/game/engine';
-import { colors, nativeDriver, radius, ROW } from '@/theme';
-import { Boat, FinishLine, Flag } from './race-art';
+import { colors, nativeDriver, radius } from '@/theme';
+import { cheerSize, FinishLine, Flag, Swimmer, SwimmerCheer, swimmerSize } from './race-art';
 import { T } from './ui';
 import { useReduceMotion } from '@/lib/motion';
 
-const TOP = 54; // finish strip + flag
-const BOTTOM = 70; // start area under the boat
-const BOAT_W = 50;
-const BOAT_H = BOAT_W * 1.55;
+/** Head size of the swimmer in a lane. */
+const HEAD = 46;
+const SWIMMER = swimmerSize(HEAD);
+const CHEER = cheerSize(HEAD);
+const SQUARE = 11;
+/** The finish strip on the left edge of each lane. */
+const FINISH = SQUARE * 2;
+/** Space between the swimmer's feet and the right wall at the start. */
+const WALL = 6;
 
+/**
+ * The pool: two lanes, one above the other. Swimmers start on the right and swim left
+ * to the finish strip (right to left, like the rest of the app).
+ */
 export function RaceTrack({ race }: { race: RaceState }) {
-  const [size, setSize] = useState({ w: 0, h: 0 });
-  const onLayout = (e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    if (width !== size.w || height !== size.h) setSize({ w: width, h: height });
-  };
-  const ready = size.h > 0;
   return (
-    <View style={styles.track} onLayout={onLayout}>
+    <View style={styles.track}>
       <Waves />
-      {ready ? (
-        <View style={{ flex: 1, flexDirection: ROW, gap: 10 }}>
-          {([0, 1] as TeamIdx[]).map((i) => (
-            <Lane key={i} race={race} index={i} height={size.h - 16} />
-          ))}
-        </View>
-      ) : null}
+      <Lane race={race} index={0} />
+      <LaneRope />
+      <Lane race={race} index={1} />
     </View>
   );
 }
 
-function Lane({ race, index, height }: { race: RaceState; index: TeamIdx; height: number }) {
+function Lane({ race, index }: { race: RaceState; index: TeamIdx }) {
   const team = race.teams[index];
   const L = race.laneLength;
-  const travel = Math.max(1, height - TOP - BOTTOM);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  // The swimmer's head is at `startX` on the start line and touches the finish strip at the end.
+  const startX = size.w - WALL - SWIMMER.width;
+  const travel = Math.max(1, startX - FINISH);
   const step = travel / L;
-  const y = useState(() => new Animated.Value(team.position))[0];
-  const [rowing, setRowing] = useState(false);
+  const x = useState(() => new Animated.Value(team.position))[0];
+  const [swimming, setSwimming] = useState(false);
   const [shownPos, setShownPos] = useState(team.position);
-  const [laneW, setLaneW] = useState(0);
   const isTurn = race.phase !== 'finished' && race.turn === index;
   const isWinner = race.winner === index;
   const still = useReduceMotion();
 
-  // Start rowing as soon as the position changes (state adjusted during render, not in an effect).
+  // Start swimming as soon as the position changes (state adjusted during render, not in an effect).
   if (shownPos !== team.position) {
     setShownPos(team.position);
-    setRowing(true);
+    setSwimming(true);
   }
 
   useEffect(() => {
-    Animated.timing(y, {
+    Animated.timing(x, {
       toValue: team.position,
       duration: still ? 250 : 900,
-      easing: still ? Easing.linear : Easing.out(Easing.back(1.2)),
+      easing: still ? Easing.linear : Easing.out(Easing.cubic),
       useNativeDriver: nativeDriver,
-    }).start(() => setRowing(false));
-  }, [team.position, y, still]);
+    }).start(() => setSwimming(false));
+  }, [team.position, x, still]);
 
-  const translateY = y.interpolate({ inputRange: [0, L], outputRange: [0, -travel] });
+  const translateX = x.interpolate({ inputRange: [0, L], outputRange: [0, -travel] });
+  const ready = size.w > 0;
+  const midY = size.h / 2 + 6;
+  // The winner stops swimming at the wall, stands up in the water and waves.
+  const cheering = isWinner && !swimming;
 
   return (
     <View
@@ -69,53 +74,90 @@ function Lane({ race, index, height }: { race: RaceState; index: TeamIdx; height
         styles.lane,
         { borderColor: isTurn ? colors.team[index] : 'rgba(255,255,255,0.55)', borderWidth: isTurn ? 3 : 2 },
       ]}
-      onLayout={(e) => setLaneW(e.nativeEvent.layout.width)}
+      onLayout={(e) => {
+        const { width, height } = e.nativeEvent.layout;
+        if (width !== size.w || height !== size.h) setSize({ w: width, h: height });
+      }}
       accessible
       accessibilityLabel={`${team.name}: ${team.position} من ${L} خطوة`}
     >
-      {laneW > 0 ? (
-        <View style={{ position: 'absolute', top: 30, left: 0, right: 0, alignItems: 'center' }}>
-          <FinishLine width={laneW - 4} squares={10} />
-        </View>
-      ) : null}
-      <View style={{ position: 'absolute', top: -6, left: 6 }}>
-        <Flag color={colors.team[index]} raised={isWinner} size={34} />
-      </View>
-
-      {/* buoys for every step, numbers every 5 */}
-      {Array.from({ length: L - 1 }).map((_, k) => {
-        const s = k + 1;
-        const top = height - BOTTOM - s * step - 4;
-        const big = s % 5 === 0;
-        return (
-          <View key={s} pointerEvents="none" style={[styles.buoyRow, { top }]}>
-            <View style={[styles.buoy, big && styles.buoyBig]} />
-            {big ? (
-              <T size={12} weight="black" color="#FFFFFF" style={styles.stepNum}>
-                {s}
-              </T>
-            ) : null}
-            <View style={[styles.buoy, big && styles.buoyBig]} />
+      {ready ? (
+        <>
+          <View style={{ position: 'absolute', left: 0, top: 0 }}>
+            <FinishLine height={size.h} square={SQUARE} />
           </View>
-        );
-      })}
+          <View style={{ position: 'absolute', top: 2, left: FINISH + 6 }}>
+            <Flag color={colors.team[index]} raised={isWinner} size={30} />
+          </View>
 
-      <View style={styles.startTag}>
-        <T size={12} weight="bold" color={colors.ink} center>
-          البداية
-        </T>
-      </View>
+          <View style={[styles.nameTag, { borderColor: colors.team[index] }]}>
+            <T size={12} weight="black" color={colors.ink} numberOfLines={1}>
+              {team.name}
+            </T>
+          </View>
 
-      <Animated.View
-        style={{
-          position: 'absolute',
-          bottom: BOTTOM - BOAT_H / 2,
-          alignSelf: 'center',
-          transform: [{ translateY }],
-        }}
-      >
-        <Boat color={colors.team[index]} mascotId={team.mascotId} photoUri={team.photoUri} width={BOAT_W} rowing={rowing} />
-      </Animated.View>
+          {/* a float for every step along the bottom, numbers every 5 */}
+          {Array.from({ length: L - 1 }).map((_, k) => {
+            const s = k + 1;
+            const big = s % 5 === 0;
+            return (
+              <View key={s} pointerEvents="none" style={[styles.mark, { left: startX - s * step - 12 }]}>
+                {big ? (
+                  <T size={12} weight="black" color="#FFFFFF" center style={styles.stepNum}>
+                    {s}
+                  </T>
+                ) : null}
+                <View style={[styles.buoy, big && styles.buoyBig]} />
+              </View>
+            );
+          })}
+
+          {/* start line */}
+          <View pointerEvents="none" style={[styles.startLine, { left: startX }]} />
+          <View style={styles.startTag}>
+            <T size={12} weight="bold" color={colors.ink} center>
+              البداية
+            </T>
+          </View>
+
+          <Animated.View
+            style={{
+              position: 'absolute',
+              left: startX,
+              top: midY - SWIMMER.height / 2,
+              width: SWIMMER.width,
+              height: SWIMMER.height,
+              transform: [{ translateX }],
+            }}
+          >
+            {cheering ? (
+              // The head stays where it touched the wall; the body stands up under it.
+              <View style={{ position: 'absolute', left: HEAD / 2 - CHEER.width / 2, top: (SWIMMER.height - CHEER.height) / 2 - 4 }}>
+                <SwimmerCheer color={colors.team[index]} mascotId={team.mascotId} photoUri={team.photoUri} size={HEAD} />
+              </View>
+            ) : (
+              <Swimmer
+                color={colors.team[index]}
+                mascotId={team.mascotId}
+                photoUri={team.photoUri}
+                size={HEAD}
+                swimming={swimming}
+              />
+            )}
+          </Animated.View>
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/** The rope of red and white floats between the two lanes. */
+function LaneRope() {
+  return (
+    <View style={styles.rope} aria-hidden>
+      {Array.from({ length: 40 }).map((_, i) => (
+        <View key={i} style={[styles.float, { backgroundColor: i % 2 === 0 ? colors.red : '#FFFFFF' }]} />
+      ))}
     </View>
   );
 }
@@ -132,11 +174,11 @@ function Waves() {
     loop.start();
     return () => loop.stop();
   }, [t, still]);
-  const translateY = t.interpolate({ inputRange: [0, 1], outputRange: [-60, 0] });
+  const translateX = t.interpolate({ inputRange: [0, 1], outputRange: [0, 60] });
   return (
-    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateY }] }]}>
-      {Array.from({ length: 16 }).map((_, i) => (
-        <View key={i} style={{ position: 'absolute', top: i * 60, left: (i * 53) % 280 }}>
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ translateX }] }]}>
+      {Array.from({ length: 18 }).map((_, i) => (
+        <View key={i} style={{ position: 'absolute', left: (i % 9) * 60 - 60, top: `${(i * 37 + 9) % 100}%` }}>
           <Svg width={34} height={10}>
             <Path d="M2 8 Q9 1 17 8 T32 8" stroke="rgba(255,255,255,0.45)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
           </Svg>
@@ -152,6 +194,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.sea,
     borderRadius: radius.xl,
     padding: 8,
+    gap: 4,
     overflow: 'hidden',
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.6)',
@@ -162,14 +205,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
     overflow: 'hidden',
   },
-  buoyRow: {
+  rope: { flexDirection: 'row', height: 8, gap: 3, overflow: 'hidden', paddingHorizontal: 6 },
+  float: { width: 14, height: 8, borderRadius: 4 },
+  nameTag: {
     position: 'absolute',
-    left: 4,
-    right: 4,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    top: 6,
+    right: 8,
+    maxWidth: '55%',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 2,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
   },
+  mark: { position: 'absolute', bottom: 5, width: 24, alignItems: 'center' },
   buoy: {
     width: 7,
     height: 7,
@@ -179,18 +227,18 @@ const styles = StyleSheet.create({
     borderColor: colors.red,
   },
   buoyBig: { width: 11, height: 11, borderRadius: 6, backgroundColor: colors.gold, borderColor: colors.ink },
-  stepNum: {
+  stepNum: { textShadowColor: 'rgba(0,0,0,0.35)', textShadowRadius: 3 },
+  startLine: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowRadius: 3,
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: 'rgba(255,255,255,0.55)',
   },
   startTag: {
     position: 'absolute',
     bottom: 6,
-    alignSelf: 'center',
+    right: 8,
     backgroundColor: colors.sand,
     borderRadius: radius.pill,
     paddingHorizontal: 10,

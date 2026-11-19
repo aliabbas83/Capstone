@@ -3,7 +3,7 @@ import { AccessibilityInfo } from 'react-native';
 
 /**
  * Follows the phone's "Reduce Motion" setting. When it is on, looping decorations
- * (waves, oars, flag waving, confetti) stop and entrances appear without bouncing.
+ * (waves, swimming arms, the winner waving, flag waving, confetti) stop and entrances appear without bouncing.
  */
 let reduced = false;
 const listeners = new Set<() => void>();

@@ -1,8 +1,8 @@
 # Jawla (جولة) — Arabic team quiz race
 
 Jawla is a party quiz game for friends and families. Two teams play on **one phone**.
-Each team has a rowing boat on the sea. Answer a question right and you choose:
-**move your boat forward** or **push the other boat back**. The first boat to reach the flag wins.
+Each team has a swimmer in a pool lane. Answer a question right and you choose:
+**move your swimmer forward** or **push the other swimmer back**. The first swimmer to reach the flag wins.
 
 The app is fully in Arabic, right-to-left.
 
@@ -12,12 +12,12 @@ The app is fully in Arabic, right-to-left.
 
 1. Each team picks a name and a picture (a mascot, or a photo from the phone).
 2. The teams take turns to pick **4 categories each** (8 different categories in total).
-3. On its turn, a team picks a category and a level: easy = 2, medium = 3, hard = 4 points.
+3. On its turn, a team picks a category and the points: 2, 3 or 4 (more points = a harder question).
 4. The host reads the question. There is a timer (30 / 60 / 90 seconds).
 5. Right answer → move forward or push the rival back by the points.
    Wrong answer → the other team gets one 15-second chance to **steal**.
 6. When a team is 4 steps or less from the finish, the other team unlocks one **5-point comeback question**.
-7. First boat to the finish line (20 steps) wins. Flag, confetti, horn.
+7. First swimmer to the finish line (20 steps) wins. Flag, a waving winner, confetti, horn.
 
 ## Features
 
@@ -49,7 +49,7 @@ capstone/
 │  │   index.tsx  auth.tsx  lobby.tsx  payment.tsx  race.tsx  setup/teams.tsx  setup/categories.tsx
 │  ├─ src/game/              game rules (engine.ts), game state (game-store.tsx), demo questions, mascots
 │  ├─ src/lib/               Supabase client, auth, payments, sound, Sentry, input checks
-│  ├─ src/components/        UI pieces (race track, boats, overlays, buttons)
+│  ├─ src/components/        UI pieces (race track, swimmers, overlays, buttons)
 │  ├─ assets/sounds/         sounds made in code by scripts/make-sounds.mjs
 │  └─ .env.example           names of the public app settings
 ├─ supabase/
@@ -181,7 +181,8 @@ Run them against a local or linked database with the Supabase CLI (`npx supabase
 | M9 | Daily question refill (Open Trivia DB + AI) | Done |
 | M10 | 14 new categories, flag and map picture questions | Done |
 | M11 | Easier to play: undo, no-timer, how-to-play, tips, turn banner, bigger pictures, payment summary | Done |
-| M12 | Level limits per team: easy 2, medium 4, hard 4 (steals count, reset after all 10) | Done |
+| M12 | Level limits per team: 2 points twice, 3 and 4 points four times each (steals count, reset after all 10) | Done |
+| M13 | Swimmers on a sideways track, levels shown as points, the winner celebrates and waves | Done |
 
 Details and test notes: [`docs/PLAN.md`](docs/PLAN.md).
 

@@ -172,7 +172,7 @@ stateDiagram-v2
   steal --> choose: other team right (15 s)
   steal --> pick: other team wrong → next turn
   choose --> pick: move forward or push back
-  choose --> finished: a boat reaches the finish
+  choose --> finished: a swimmer reaches the finish
   finished --> [*]: winner screen (real: finish_game)
 ```
 
@@ -181,7 +181,7 @@ Notes:
 - **Demo mode**: lane 10 steps, questions from `demo-questions.ts`, no server calls.
 - **Real mode**: lane 20 steps; `start_game` makes the game, `draw_question` gives each question, `remaining_questions` greys out finished categories, `finish_game` saves the winner (or "abandoned" when the host ends early).
 - **Comeback**: when the rival is 4 steps or less from the finish, the team's 5-point question becomes `available`; after use it is `used`.
-- Boats never go behind the start line.
+- Swimmers never go behind the start line.
 
 ## 6. Monitoring
 

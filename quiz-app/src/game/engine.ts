@@ -146,7 +146,7 @@ export function markWrong(s: RaceState): RaceState {
   return s;
 }
 
-/** The scoring team moves its own boat forward or pushes the rival back. */
+/** The scoring team moves its own swimmer forward or pushes the rival back. */
 export function chooseMove(s: RaceState, kind: MoveKind): RaceState {
   if (s.phase !== 'choose' || !s.pending) return s;
   const scorer = s.pending.answering;

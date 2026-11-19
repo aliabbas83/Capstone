@@ -1,7 +1,8 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
-import { LEVEL_LIMITS, LevelPoints, levelsLeft, other, RaceState, STEAL_SECONDS, TeamIdx, type Points } from '@/game/engine';
+import { LEVEL_LIMITS, levelsLeft, other, RaceState, STEAL_SECONDS, TeamIdx, type Points } from '@/game/engine';
+import { LEVELS, timesLabel } from '@/game/levels';
 import type { Category, Question, QuestionImage } from '@/game/demo-questions';
 import { colors, nativeDriver, radius, ROW } from '@/theme';
 import { play } from '@/lib/sound';
@@ -9,7 +10,7 @@ import { Confetti, TimerRing } from './effects';
 import { SoundToggles } from './sound-toggles';
 import { ArrowDownIcon, ArrowUpIcon, BookIcon, CheckIcon, CrossIcon, ExpandIcon } from './icons';
 import { MascotBadge } from './mascot-badge';
-import { Flag } from './race-art';
+import { Flag, SwimmerCheer } from './race-art';
 import { FirstTimeTip } from './tip';
 import { Button, Card, haptic, PopIn, Row, T } from './ui';
 import { useReduceMotion } from '@/lib/motion';
@@ -308,15 +309,15 @@ export function ChooseOverlay({ race, onChoose }: { race: RaceState; onChoose: (
           <ChoiceCard
             tone={scorer}
             icon={<ArrowUpIcon color={colors.onTeam[scorer]} />}
-            title="تقدّم بقاربنا"
+            title="تقدّم بسبّاحنا"
             sub={`+${p.points} خطوات لـ ${teamName(race, scorer)}`}
             onPress={() => onChoose('forward')}
           />
           <ChoiceCard
             tone={rival}
             icon={<ArrowDownIcon color={colors.onTeam[rival]} />}
-            title={`ارجع قارب ${teamName(race, rival)}`}
-            sub={rivalAtStart ? 'قاربهم عند البداية، ما يرجع أكثر' : `−${p.points} خطوات لهم`}
+            title={`ارجع سبّاح ${teamName(race, rival)}`}
+            sub={rivalAtStart ? 'سبّاحهم عند البداية، ما يرجع أكثر' : `−${p.points} خطوات لهم`}
             disabled={rivalAtStart}
             onPress={() => onChoose('push')}
           />
@@ -404,7 +405,7 @@ export function WinnerOverlay({
               رفعوا العلم!
             </T>
             <Row style={{ gap: 6, alignItems: 'flex-end' }}>
-              <MascotBadge mascotId={race.teams[w].mascotId} photoUri={race.teams[w].photoUri} size={110} ring={colors.team[w]} />
+              <SwimmerCheer color={colors.team[w]} mascotId={race.teams[w].mascotId} photoUri={race.teams[w].photoUri} size={78} />
               <Flag color={colors.team[w]} raised={flagUp} size={56} />
             </Row>
             <T weight="black" size={32} center accessibilityRole="header" accessibilityLiveRegion="assertive">
@@ -516,7 +517,7 @@ export function PauseMenu({
   );
 }
 
-/** Bottom panel on the race screen: choose a category, then a difficulty (or the 5-point comeback). */
+/** Bottom panel on the race screen: choose a category, then the points (or the 5-point comeback). */
 export function PickPanel({
   race,
   categories,
@@ -548,11 +549,6 @@ export function PickPanel({
   const team = race.teams[turn];
   const ids = [...race.teams[0].categories, ...race.teams[1].categories];
   const byId = Object.fromEntries(categories.map((c) => [c.id, c]));
-  const levels: { points: LevelPoints; label: string }[] = [
-    { points: 2, label: 'سهل' },
-    { points: 3, label: 'متوسط' },
-    { points: 4, label: 'صعب' },
-  ];
   const canComeback = team.comeback === 'available';
   const hasAny = (id: string) => [2, 3, 4].some((pt) => remaining(id, pt as Points) > 0) || (canComeback && remaining(id, 5) > 0);
   const allOut = ids.length > 0 && ids.every((id) => !hasAny(id));
@@ -576,7 +572,7 @@ export function PickPanel({
       <Row style={{ gap: 10 }}>
         <MascotBadge mascotId={team.mascotId} photoUri={team.photoUri} size={36} ring={colors.team[turn]} />
         <T weight="black" size={17} style={{ flex: 1 }} accessibilityLiveRegion="polite">
-          {cat ? `${byId[cat]?.name}: اختاروا الصعوبة` : `دور ${team.name}: اختاروا فئة`}
+          {cat ? `${byId[cat]?.name}: اختاروا النقاط` : `دور ${team.name}: اختاروا فئة`}
         </T>
         {cat ? (
           <Button label="غيّر" tone="white" size="sm" disabled={busy} onPress={() => setCat(null)} />
@@ -618,7 +614,7 @@ export function PickPanel({
       ) : (
         <View style={{ gap: 10 }}>
           <Row style={{ gap: 8 }}>
-            {levels.map((lv) => {
+            {LEVELS.map((lv) => {
               const left = remaining(cat, lv.points);
               const picks = levelsLeft(team, lv.points);
               return (
@@ -626,7 +622,7 @@ export function PickPanel({
                   <Button
                     size="md"
                     tone={turn === 0 ? 'team0' : 'team1'}
-                    label={picks === 0 ? `${lv.label}: انتهت` : left === 0 ? `${lv.label}: خلصت` : `${lv.label} +${lv.points}`}
+                    label={picks === 0 ? `${lv.label}: انتهت` : left === 0 ? `${lv.label}: خلصت` : lv.label}
                     accessibilityHint={picks > 0 ? `باقي لكم ${picks} من ${LEVEL_LIMITS[lv.points]}` : undefined}
                     disabled={picks === 0 || left === 0 || busy}
                     onPress={() => onAsk(cat, lv.points, false)}
@@ -655,7 +651,7 @@ export function PickPanel({
       ) : null}
       {!cat ? (
         <T size={13} center color={colors.inkSoft}>
-          {`مرّاتكم الباقية: سهل ${levelsLeft(team, 2)} · متوسط ${levelsLeft(team, 3)} · صعب ${levelsLeft(team, 4)}`}
+          {`الباقي لكم: ${LEVELS.map((lv) => `${lv.label} (${timesLabel(levelsLeft(team, lv.points))})`).join(' · ')}`}
         </T>
       ) : null}
       {canComeback && !cat ? (

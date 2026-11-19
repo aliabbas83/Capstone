@@ -240,7 +240,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         // This team has used this level up (easy 2, medium 4, hard 4): don't use up a question for nothing.
         const race = state.race;
         if (race && !isComeback && levelsLeft(race.teams[race.turn], points) === 0) {
-          setAskError('استخدمتوا كل مرّاتكم في هذه الصعوبة. اختاروا غيرها.');
+          setAskError('استخدمتوا كل مرّاتكم في هذه النقاط. اختاروا غيرها.');
           return 'error';
         }
         if (!real) {
@@ -257,7 +257,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           const k = key(categoryId, points);
           if (!q) {
             setCatalog((c) => ({ ...c, left: { ...c.left, [k]: 0 } }));
-            setAskError('خلصت أسئلة هذه الصعوبة. اختاروا غيرها.');
+            setAskError('خلصت أسئلة هذه النقاط. اختاروا غيرها.');
             return 'empty';
           }
           setCatalog((c) => ({ ...c, left: { ...c.left, [k]: Math.max(0, (c.left[k] ?? 1) - 1) } }));
