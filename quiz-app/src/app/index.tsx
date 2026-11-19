@@ -70,10 +70,10 @@ export default function Home() {
           <Flag color={colors.gold} raised size={56} />
           <View style={{ gap: 14 }}>
             <Animated.View style={{ transform: [{ translateX: drift }] }}>
-              <Swimmer color={colors.team[0]} mascotId="falcon" photoUri={null} size={42} swimming />
+              <Swimmer color={colors.team[0]} size={42} swimming />
             </Animated.View>
             <Animated.View style={{ marginLeft: 34, transform: [{ translateX: Animated.multiply(drift, -1) }] }}>
-              <Swimmer color={colors.team[1]} mascotId="tiger" photoUri={null} size={42} swimming />
+              <Swimmer color={colors.team[1]} size={42} swimming />
             </Animated.View>
           </View>
         </View>

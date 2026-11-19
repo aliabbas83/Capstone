@@ -183,6 +183,7 @@ Run them against a local or linked database with the Supabase CLI (`npx supabase
 | M11 | Easier to play: undo, no-timer, how-to-play, tips, turn banner, bigger pictures, payment summary | Done |
 | M12 | Level limits per team: 2 points twice, 3 and 4 points four times each (steals count, reset after all 10) | Done |
 | M13 | Swimmers on a sideways track, levels shown as points, the winner celebrates and waves | Done |
+| M14 | Rectangular pool with deck, starting blocks and painted water; swimmers without team pictures | Done |
 
 Details and test notes: [`docs/PLAN.md`](docs/PLAN.md).
 

@@ -405,7 +405,7 @@ export function WinnerOverlay({
               رفعوا العلم!
             </T>
             <Row style={{ gap: 6, alignItems: 'flex-end' }}>
-              <SwimmerCheer color={colors.team[w]} mascotId={race.teams[w].mascotId} photoUri={race.teams[w].photoUri} size={78} />
+              <SwimmerCheer color={colors.team[w]} size={78} />
               <Flag color={colors.team[w]} raised={flagUp} size={56} />
             </Row>
             <T weight="black" size={32} center accessibilityRole="header" accessibilityLiveRegion="assertive">

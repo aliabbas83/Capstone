@@ -25,6 +25,10 @@ export const colors = {
   /** Swimmer's arms and legs. */
   skin: '#F6C8A0',
   skinDeep: '#D9996B',
+  /** Stone deck around the pool, and the dark line on the pool floor. */
+  deck: '#EFE7D6',
+  deckDeep: '#C9BDA3',
+  floorLine: 'rgba(8,60,110,0.3)',
   team: ['#FF8A1F', '#7B4DFF'] as const,
   teamDeep: ['#C25E00', '#5129D6'] as const,
   teamSoft: ['#FFEBD6', '#ECE5FF'] as const,

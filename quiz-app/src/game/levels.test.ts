@@ -60,3 +60,10 @@ describe('words on screen', () => {
     expect(linesWith(/(^|[^؀-ۿ])(سهل|متوسط|صعب)([^؀-ۿ]|$)/)).toEqual([]);
   });
 });
+
+describe('swimmers', () => {
+  it('do not carry the team picture (plain head with a cap in the team colour)', () => {
+    const art = readFileSync(join(ROOT, 'components', 'race-art.tsx'), 'utf8');
+    expect(art).not.toMatch(/MascotBadge|mascotId|photoUri/);
+  });
+});

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Animated, Easing, View } from 'react-native';
 import Svg, { Circle, Ellipse, Path, Polygon, Rect } from 'react-native-svg';
 import { colors, nativeDriver } from '@/theme';
-import { MascotBadge } from './mascot-badge';
 import { useReduceMotion } from '@/lib/motion';
 
 /** A value that goes 0 → 1 → 0 for ever while `on` is true (and rests at 0 otherwise). */
@@ -29,19 +28,15 @@ function useSwing(on: boolean, halfMs: number) {
 export const swimmerSize = (size: number) => ({ width: size * 2.6, height: size * 1.3 });
 
 /**
- * Swimmer seen from above, swimming to the left. The head is the team picture and the
- * swimsuit is in the team colour. `swimming` moves the arms and legs.
+ * Swimmer seen from above, swimming to the left. The swim cap and the swimsuit are in
+ * the team colour. `swimming` moves the arms and legs.
  */
 export function Swimmer({
   color,
-  mascotId,
-  photoUri,
   size = 40,
   swimming,
 }: {
   color: string;
-  mascotId: string;
-  photoUri: string | null;
   /** Head size. The whole swimmer is 2.6 × this long. */
   size?: number;
   swimming?: boolean;
@@ -114,9 +109,13 @@ export function Swimmer({
         </Svg>
       </View>
 
-      {/* head: the team picture, with the cap rim in the team colour */}
+      {/* head from above: the swim cap in the team colour, a little forehead at the front */}
       <View style={{ position: 'absolute', left: 0, top: cy - s / 2 }}>
-        <MascotBadge mascotId={mascotId} photoUri={photoUri} size={s} ring={color} />
+        <Svg width={s} height={s} viewBox="0 0 100 100">
+          <Circle cx={50} cy={50} r={44} fill={colors.skin} stroke={colors.skinDeep} strokeWidth={3} />
+          <Path d="M36 8 A44 44 0 1 1 36 92 Q24 50 36 8 Z" fill={color} stroke="rgba(11,37,69,0.35)" strokeWidth={3} />
+          <Path d="M30 45 L93 45 L93 55 L30 55 Z" fill="rgba(255,255,255,0.85)" />
+        </Svg>
       </View>
     </View>
   );
@@ -128,17 +127,7 @@ export const cheerSize = (size: number) => ({ width: size * 2.3, height: size * 
 /**
  * The winning swimmer: upright in the water, jumping a little, one arm up and the other waving.
  */
-export function SwimmerCheer({
-  color,
-  mascotId,
-  photoUri,
-  size = 40,
-}: {
-  color: string;
-  mascotId: string;
-  photoUri: string | null;
-  size?: number;
-}) {
+export function SwimmerCheer({ color, size = 40 }: { color: string; size?: number }) {
   const s = size;
   const { width, height } = cheerSize(s);
   const cx = width / 2;
@@ -184,9 +173,16 @@ export function SwimmerCheer({
           </Svg>
         </View>
 
-        {/* head */}
+        {/* head: a happy face under a swim cap in the team colour */}
         <View style={{ position: 'absolute', left: cx - s / 2, top: s * 0.02 }}>
-          <MascotBadge mascotId={mascotId} photoUri={photoUri} size={s} ring={color} />
+          <Svg width={s} height={s} viewBox="0 0 100 100">
+            <Circle cx={50} cy={50} r={44} fill={colors.skin} stroke={colors.skinDeep} strokeWidth={3} />
+            <Path d="M7 44 A44 44 0 0 1 93 44 Q50 30 7 44 Z" fill={color} stroke="rgba(11,37,69,0.35)" strokeWidth={3} />
+            <Path d="M45 7 L55 7 L55 34 L45 34 Z" fill="rgba(255,255,255,0.85)" />
+            <Circle cx={35} cy={57} r={5} fill={colors.ink} />
+            <Circle cx={65} cy={57} r={5} fill={colors.ink} />
+            <Path d="M33 69 Q50 87 67 69 Z" fill={colors.ink} />
+          </Svg>
         </View>
       </Animated.View>
 
